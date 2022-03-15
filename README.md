@@ -2,6 +2,8 @@
 
 This is the official implementation of the paper "On Embeddings for Numerical Features in Tabular Deep Learning" ([arXiv](https://arxiv.org/abs/2203.05556)).
 
+Check out other projects on tabular Deep Learning: [link](https://github.com/Yura52/rtdl#papers-and-projects).
+
 ---
 - [The main results](#the-main-results)
 - [Set up the environment](#set-up-the-environment)
