@@ -4,6 +4,8 @@ This is the official implementation of the paper "On Embeddings for Numerical Fe
 
 Check out other projects on tabular Deep Learning: [link](https://github.com/Yura52/rtdl#papers-and-projects).
 
+Feel free to report [issues](https://github.com/Yura52/tabular-dl-num-embeddings/issues) and post [questions/feedback/thoughts](https://github.com/Yura52/tabular-dl-num-embeddings/discussions).
+
 ---
 - [The main results](#the-main-results)
 - [Set up the environment](#set-up-the-environment)
