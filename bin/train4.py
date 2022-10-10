@@ -3,7 +3,7 @@ import math
 import time
 from copy import deepcopy
 from dataclasses import asdict, dataclass, field
-from typing import Any, List, Literal, Optional, Tuple, Union
+from typing import Any, List, Literal, Optional, Tuple, Union, cast
 
 import numpy as np
 import rtdl
@@ -60,6 +60,7 @@ class Config:
         periodic_sigma: Optional[float] = None
         periodic: Optional[lib.PeriodicOptions] = None
         autodis: Optional[AutoDisOptions] = None
+        dice: bool = False
         fourier_features: Optional[FourierFeaturesOptions] = None
         # The following parameter is purely technical and does not affect the "algorithm".
         # Setting it to False leads to better speed.
@@ -113,7 +114,9 @@ class Config:
         if self.model.periodic is not None:
             assert self.model.fourier_features is None
         if self.model.d_num_embedding is not None:
-            assert self.model.num_embedding_arch
+            assert self.model.num_embedding_arch or self.model.dice
+        if self.model.dice:
+            assert self.model.d_num_embedding
         if self.is_resnet:
             lib.replace_factor_with_value(
                 self.model.resnet,  # type: ignore[code]
@@ -301,11 +304,66 @@ class NumEmbeddings(nn.Module):
         return self.layers(x)
 
 
+class _DICE(nn.Module):
+    """The DICE method from "Methods for Numeracy-Preserving Word Embeddings" by Sundararaman et al."""
+
+    Q: Tensor
+
+    def __init__(self, d: int, x_min: float, x_max: float) -> None:
+        super().__init__()
+        self.x_min = x_min
+        self.x_max = x_max
+        M = torch.randn(d, d)
+        Q, _ = torch.linalg.qr(M)
+        self.register_buffer('Q', Q)
+
+    def forward(self, x: Tensor) -> Tensor:
+        assert x.ndim == 1
+        d = len(self.Q)
+        x = (x - self.x_min) / (self.x_max - self.x_min)
+        x = torch.where(
+            (0.0 <= x) & (x <= 1.0),
+            x * torch.pi,
+            torch.empty_like(x).uniform_(-torch.pi, torch.pi)
+            # torch.distributions.Uniform(-torch.pi, torch.pi).sample(x.shape).to(x),
+        )
+        exponents = torch.arange(d - 1, dtype=x.dtype, device=x.device)
+        x = torch.column_stack(
+            [
+                torch.cos(x)[:, None] * torch.sin(x)[:, None] ** exponents[None],
+                torch.sin(x) ** (d - 1),
+            ]
+        )
+        x = x @ self.Q
+        return x
+
+
+class DICEEmbeddings(nn.Module):
+    def __init__(
+        self, d: int, lower_bounds: list[float], upper_bounds: list[float]
+    ) -> None:
+        super().__init__()
+        self.modules_ = nn.ModuleList(
+            [_DICE(d, *bounds) for bounds in zip(lower_bounds, upper_bounds)]
+        )
+        self.d_embedding = d
+
+    def forward(self, x: Tensor) -> Tensor:
+        assert x.shape[1] == len(self.modules_)
+        return torch.stack(
+            [self.modules_[i](x[:, i]) for i in range(len(self.modules_))],
+            1,
+        )
+
+
 class BaseModel(nn.Module):
     category_sizes: List[int]  # torch.jit does not support list[int]
 
     def __init__(self, config: Config, dataset: lib.Dataset, n_bins: Optional[int]):
         super().__init__()
+        assert dataset.X_num is not None
+        lower_bounds = dataset.X_num['train'].min(0).tolist()
+        upper_bounds = dataset.X_num['train'].max(0).tolist()
         self.num_embeddings = (
             NumEmbeddings(
                 D.n_num_features,
@@ -317,6 +375,10 @@ class BaseModel(nn.Module):
                 config.model.memory_efficient,
             )
             if config.model.num_embedding_arch
+            else DICEEmbeddings(
+                cast(int, config.model.d_num_embedding), lower_bounds, upper_bounds
+            )
+            if config.model.dice
             else None
         )
         self.category_sizes = dataset.get_category_sizes('train')

@@ -1,0 +1,25 @@
+{
+    "program": "bin/ensemble.py",
+    "config": {
+        "seeds": [
+            5,
+            6,
+            7,
+            8,
+            9
+        ]
+    },
+    "single_model_program": "bin/train4___215933f959bd4ed389c236624e84783c.py",
+    "data": "data/fb-comments",
+    "prediction_type": null,
+    "metrics": {
+        "val": {
+            "rmse": 5.274181477726886,
+            "score": -5.274181477726886
+        },
+        "test": {
+            "rmse": 5.616146836955233,
+            "score": -5.616146836955233
+        }
+    }
+}

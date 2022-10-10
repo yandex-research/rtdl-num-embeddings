@@ -1,0 +1,25 @@
+{
+    "program": "bin/ensemble.py",
+    "config": {
+        "seeds": [
+            5,
+            6,
+            7,
+            8,
+            9
+        ]
+    },
+    "single_model_program": "bin/train4___77de4efcda5d43bcb070af84d901706e.py",
+    "data": "data/california",
+    "prediction_type": null,
+    "metrics": {
+        "val": {
+            "rmse": 0.4828094778326158,
+            "score": -0.4828094778326158
+        },
+        "test": {
+            "rmse": 0.48669163068892585,
+            "score": -0.48669163068892585
+        }
+    }
+}

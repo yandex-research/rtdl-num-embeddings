@@ -1,0 +1,75 @@
+{
+    "program": "bin/ensemble.py",
+    "config": {
+        "seeds": [
+            10,
+            11,
+            12,
+            13,
+            14
+        ]
+    },
+    "single_model_program": "bin/train4___65caade1d68a441e85acc2ae9bf63bf6.py",
+    "data": "data/higgs-small",
+    "prediction_type": "probs",
+    "metrics": {
+        "val": {
+            "0": {
+                "precision": 0.7296753806377477,
+                "recall": 0.6868577609518659,
+                "f1-score": 0.7076194456052375,
+                "support": 7396
+            },
+            "1": {
+                "precision": 0.7345862938345176,
+                "recall": 0.7730342498794018,
+                "f1-score": 0.7533200141027148,
+                "support": 8292
+            },
+            "accuracy": 0.732406935237124,
+            "macro avg": {
+                "precision": 0.7321308372361326,
+                "recall": 0.7299460054156339,
+                "f1-score": 0.7304697298539762,
+                "support": 15688
+            },
+            "weighted avg": {
+                "precision": 0.7322710774906044,
+                "recall": 0.732406935237124,
+                "f1-score": 0.7317747945331494,
+                "support": 15688
+            },
+            "roc_auc": 0.8085606827278118,
+            "score": 0.732406935237124
+        },
+        "test": {
+            "0": {
+                "precision": 0.7157073391383015,
+                "recall": 0.684586262844781,
+                "f1-score": 0.6998009730207873,
+                "support": 9245
+            },
+            "1": {
+                "precision": 0.7291724714405127,
+                "recall": 0.7574529667149059,
+                "f1-score": 0.7430437251561612,
+                "support": 10365
+            },
+            "accuracy": 0.7231004589495156,
+            "macro avg": {
+                "precision": 0.722439905289407,
+                "recall": 0.7210196147798434,
+                "f1-score": 0.7214223490884742,
+                "support": 19610
+            },
+            "weighted avg": {
+                "precision": 0.7228244271705514,
+                "recall": 0.7231004589495156,
+                "f1-score": 0.7226572262529725,
+                "support": 19610
+            },
+            "roc_auc": 0.8022171539250039,
+            "score": 0.7231004589495156
+        }
+    }
+}

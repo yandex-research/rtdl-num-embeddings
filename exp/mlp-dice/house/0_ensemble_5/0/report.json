@@ -1,0 +1,25 @@
+{
+    "program": "bin/ensemble.py",
+    "config": {
+        "seeds": [
+            0,
+            1,
+            2,
+            3,
+            4
+        ]
+    },
+    "single_model_program": "bin/train4___9e0f21253f2c4245a142e3d1fdcb201e.py",
+    "data": "data/house",
+    "prediction_type": null,
+    "metrics": {
+        "val": {
+            "rmse": 27911.551722637665,
+            "score": -27911.551722637665
+        },
+        "test": {
+            "rmse": 30740.2374663617,
+            "score": -30740.2374663617
+        }
+    }
+}
