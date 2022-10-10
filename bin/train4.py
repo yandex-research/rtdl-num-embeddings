@@ -248,7 +248,7 @@ class NumEmbeddings(nn.Module):
             assert d_embedding is None
         assert embedding_arch.count('positional') <= 1
         if 'autodis' in embedding_arch:
-            embedding_arch == ['autodis']
+            assert embedding_arch == ['autodis']
 
         NLinear_ = NLinearMemoryEfficient if memory_efficient else NLinear
         layers: list[nn.Module] = []
