@@ -12,7 +12,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["torch >=1.8,<3"]
+dependencies = ["torch >=1.8,<3", "rtdl_revisiting_models>=0.0.2"]
 
 dynamic = ["version", "description"]
 keywords = [
@@ -31,8 +31,8 @@ name = "rtdl_num_embeddings"
 requires-python = ">=3.8"
 
 [project.urls]
-Code = "https://github.com/yandex-research/tabular-dl-num-embeddings/tree/main/package/README.md"
-Documentation = "https://github.com/yandex-research/tabular-dl-num-embeddings/tree/main/package/README.md"
+Code = "https://github.com/yandex-research/rtdl-num-embeddings/tree/main/package/README.md"
+Documentation = "https://github.com/yandex-research/rtdl-num-embeddings/tree/main/package/README.md"
 
 [tool.black]
 skip_string_normalization = true
@@ -43,7 +43,7 @@ name = "rtdl_num_embeddings"
 [tool.isort]
 profile = "black"
 multi_line_output = 3
-known_first_party = ["rtdl_num_embeddings", "rtdl_revisiting_models>=0.0.2"]
+known_first_party = ["rtdl_num_embeddings"]
 
 [tool.mypy]
 check_untyped_defs = true
