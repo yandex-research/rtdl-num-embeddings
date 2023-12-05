@@ -1,29 +1,151 @@
-# On Embeddings for Numerical Features in Tabular Deep Learning<!-- omit in toc -->
+# On Embeddings for Numerical Features in Tabular Deep Learning (NeurIPS 2022)
 
-This is the official implementation of the paper "On Embeddings for Numerical Features in Tabular Deep Learning" ([arXiv](https://arxiv.org/abs/2203.05556)).
+This is the official implementation of the paper
+"On Embeddings for Numerical Features in Tabular Deep Learning".
 
-**Check out other projects on tabular Deep Learning:** [link](https://github.com/Yura52/rtdl#papers-and-projects).
+> [!NOTE]
+> More precisely, the paper is about embeddings for ***continuous*** features.
 
-Feel free to report [issues](https://github.com/Yura52/tabular-dl-num-embeddings/issues) and post [questions/feedback/ideas](https://github.com/Yura52/tabular-dl-num-embeddings/discussions).
+<!--
+NOTE: some of the following lines has two spaces in the end
+which translates to line breaks in Markdown.
+-->
 
----
-- [The main results](#the-main-results)
-- [Set up the environment](#set-up-the-environment)
-    - [Software](#software)
-    - [Data](#data)
-- [How to reproduce results](#how-to-reproduce-results)
-- [Understanding the repository](#understanding-the-repository)
-    - [Code overview](#code-overview)
-    - [Technical notes](#technical-notes)
-    - [Running scripts](#running-scripts)
-    - [train0.py vs train1.py vs train3.py vs train4.py](#train0py-vs-train1py-vs-train3py-vs-train4py)
-- [How to cite](#how-to-cite)
+**Links**
 
----
+:scroll: [arXiv](https://arxiv.org/abs/2203.05556)  
+:package: [**Python package**](./package/README.md#python-package)  
+:books: [RTDL (other projects on tabular deep learning)](https://github.com/yandex-research/rtdl)
 
-## The main results
+**This document**
 
-See [bin/results.ipynb](./bin/results.ipynb).
+[TL;DR](#tldr)  
+[Metrics & Hyperparameters](#how-to-explore-metrics-and-hyperparameters)  
+[How to reproduce the reported results](#how-to-reproduce-the-results)  
+[How to cite](#how-to-cite)
+
+# TL;DR
+
+*In one sentence: transforming the original scalar continuous features to vectors
+before mixing them in the main backbone (e.g. in MLP, Transformer, etc.) improves
+the downstream performance of tabular neural networks.*
+
+<img src="package/overview.png" width=80%>
+
+*Left: vanilla MLP taking two continuous features as input.
+Right: the same MLP, but now with embeddings for continuous features.*
+
+In more detail:
+
+- In the paper, we highlight a major overlooked design aspect of tabular deep learning
+  models, namely, **embeddings for continuous features**, which
+  means transforming scalar continuous features to vectors
+  **before mixing them in the main backbone** as illustrated above.
+- It turns out that **embeddings for continuous features can (significantly) improve
+  the performance of tabular DL models**.
+- Embeddings are **applicable to any conventional backbone**.
+  In particular, **simple MLP with embeddings becomes competitive** with
+  heavy Transormer-based models while being significantly more efficient
+  (in other words, embeddings, not the attention module can be the reason why
+  tabular transformers showed their effectiveness in 2021).
+- Despite the formal overhead in terms of parameter count, in practice,
+  **embeddings are perfectly affordable in many cases**. On big enough
+  datasets and/or with large enough number of features and/or with strict enough latency
+  requirements, the new overhead associated with embeddings may become an issue.
+
+<details>
+<summary><b>Why do embeddings work?</b></summary>
+
+- Irregularly distributed continuous features (and their irregular joint
+  distributions with labels) is a usual thing in real world tabular data.
+- This may become a major fundamental optimization challenge for tabular DL models
+  because of limitations of SGD-like optimization algorithms.
+- Transforming the input space is one potential way to simplify the optimization
+  problem for SGD-like algorithms.
+
+**A great reference** for understanding the aforementioned optimization
+challenge (and a great example of addressing those challenges by transforming input
+space) is the paper
+["Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains"](https://arxiv.org/abs/2006.10739).
+
+</details>
+
+# How to explore metrics and hyperparameters
+
+The `exp/` directory contains numerious results and (tuned) hyperparameters
+for various models and datasets used in the paper.
+
+## Metrics
+
+For example, let's explore the metrics for the MLP model.
+First, let's load the reports (the `report.json` files):
+
+```python
+import json
+from pathlib import Path
+
+import pandas as pd
+
+df = pd.json_normalize([
+    json.loads(x.read_text())
+    for x in Path('exp').glob('mlp/*/0_evaluation/*/report.json')
+])
+```
+
+Now, for each dataset, let's compute the test score averaged over all random seeds:
+
+```python
+print(df.groupby('config.data.path')['metrics.test.score'].mean().round(3))
+```
+
+*The output exactly matches Table 3 from the paper:*
+
+```
+config.data.path
+data/adult              0.854
+data/california        -0.495
+data/churn              0.856
+data/covtype            0.964
+data/fb-comments       -5.686
+data/gesture            0.632
+data/higgs-small        0.720
+data/house         -32039.399
+data/microsoft         -0.747
+data/otto               0.818
+data/santander          0.912
+Name: metrics.test.score, dtype: float64
+```
+
+## Hyperparameters
+
+The above approach can also be used to explore hyperparameters to get intuition
+on typical hyperparameter values for different algorithms.
+For example, this is how one can compute the median tuned learning rate
+for the MLP model:
+
+> [!NOTE]
+> For some algorithms (e.g. MLP, MLP-LR, MLP-PLR), more recent projects offer more
+> results that can be explored in a similar way. For example, see
+> [this paper on TabR](https://github.com/yandex-research/tabular-dl-tabr/).
+
+> [!WARNING]
+> **Use this approach with caution.** When studying hyperparameter values:
+> 1. Beware of outliers.
+> 2. Take a look at raw unaggregated values to get intuition on typical values.
+> 3. For a high-level overview, plot the distribution and/or compute multiple quantiles.
+
+```python
+print(df[df['config.seed'] == 0]['config.training.lr'].quantile(0.5))
+# Output: 0.0002716544410603358
+```
+
+# How to reproduce the results
+
+> [!IMPORTANT]
+> 
+> This section is long.
+> **Use the "Outline" feature** on GitHub on in your text editor to get an overview
+> of this section.
 
 ## Set up the environment
 
@@ -37,7 +159,7 @@ Preliminaries:
 ```bash
 export PROJECT_DIR=<ABSOLUTE path to the repository root>
 # example: export PROJECT_DIR=/home/myusername/repositories/num-embeddings
-git clone https://github.com/Yura52/tabular-dl-num-embeddings $PROJECT_DIR
+git clone https://github.com/yandex-research/tabular-dl-num-embeddings $PROJECT_DIR
 cd $PROJECT_DIR
 
 conda create -n num-embeddings python=3.9.7
@@ -66,7 +188,9 @@ conda activate num-embeddings
 
 ### Data
 
-LICENSE: by downloading our dataset you accept the licenses of all its components. We do not impose any new restrictions in addition to those licenses. You can find the list of sources in the paper.
+LICENSE: by downloading our dataset you accept the licenses of all its components.
+We do not impose any new restrictions in addition to those licenses.
+You can find the list of sources in the paper.
 
 ```bash
 cd $PROJECT_DIR
@@ -114,6 +238,7 @@ The code is organized as follows:
     - `train1_synthetic.py` for the experiments with synthetic data
 - `lib` contains common tools used by programs in `bin`
 - `exp` contains experiment configs and results (metrics, tuned configurations, etc.). The names of the nested folders follow the names from the paper (example: `exp/mlp-plr` corresponds to the MLP-PLR model from the paper).
+- `package` contains the Python package for this paper
 
 ### Technical notes
 - You must explicitly set `CUDA_VISIBLE_DEVICES` when running scripts
@@ -142,13 +267,12 @@ python bin/train0.py exp/tmp/0.toml
 ls exp/tmp/0
 ```
 
-## How to cite
+# How to cite
 ```
-@article{gorishniy2022embeddings,
+@inproceedings{gorishniy2022embeddings,
     title={On Embeddings for Numerical Features in Tabular Deep Learning},
     author={Yury Gorishniy and Ivan Rubachev and Artem Babenko},
-    journal={arXiv},
-    volume={2203.05556},
+    booktitle={{NeurIPS}},
     year={2022},
 }
 ```
