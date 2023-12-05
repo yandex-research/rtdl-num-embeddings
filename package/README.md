@@ -1,28 +1,38 @@
 # Python package <!-- omit in toc -->
 
-This package provides the officially recommended easy-to-use
+> [!NOTE]
+> See also [RTDL](https://github.com/yandex-research/rtdl)
+> -- other projects on tabular deep learning.
+
+This package provides the officially recommended
 implementation of the main things from the paper.
+
+<details>
+<summary><i>This package VS The original implementation</i></summary>
+
+"Original implementation" is the code in `bin/` and `lib/`
+used to obtain numbers reported in the paper.
+
+- **This package is recommended over the original implementation**:
+  the package is significanty simpler
+  while being fully consistent with the original code
+  (with one minor exception: there is one accidental divergence
+  of the original code from the paper, which is now fixed in the package)
+- Strictly speaking, the package may have
+  small technical divergences from the original code.
+  Just in case, they are marked
+  with `# NOTE[DIFF]` comments in the source code of this package.
+  Any divergence from the original implementation without the `# NOTE[DIFF]` comment
+  is considered to be a bug.
+
+</details>
+
 
 > [!IMPORTANT]
 > For a long time, in the main branch of the
 > [RTDL](https://github.com/yandex-research/rtdl) project,
 > there was an *unfinished* implementation of this paper with many unresolved issues.
 > It is *highly* recommended to switch to this package.
-
-> [!NOTE]
->
-> <details>
-> <summary>This package VS The original implementation</summary>
->
-> - The differences between this package and the original implementation
->   (the code in `bin/` and `lib/`
->   used to obtain numbers reported in the paper)
->   are rare, minor and marked with the `# NOTE[DIFF]` comments
->   in the source code of this package.
-> - Any divergence from the original implementation without the `# NOTE[DIFF]` comment
->   is considered to be a bug.
-> 
-> </details>
 
 ---
 
@@ -35,16 +45,16 @@ implementation of the main things from the paper.
 
 # Installation
 
-*(RTDL ~ Research on Tabular Deep Learning)*
-
 > [!NOTE]
 > If you are *not* going to use
 > the decision-tree-based bin computation (`compute_bins(..., tree_kwargs={...})`),
 > then you can omit the installation of `scikit-learn`.
 
+*(RTDL ~ **R**esearch on **T**abular **D**eep **L**earning)*
+
 ```
-pip install "scikit-learn>=1.0,<2"
 pip install rtdl_num_embeddings
+pip install "scikit-learn>=1.0,<2"
 ```
 
 # Usage
@@ -285,7 +295,10 @@ Y_train = torch.randn(len(X_train))  # Regression.
 
 # (Q) Quantile-based bins.
 bins = compute_bins(X_train)
-# (T) Target-aware (tree-based) bins.
+
+# (T) Target-aware tree-based bins.
+#     They are extracted from splitting nodes
+#     of feature-wise decision trees.
 bins = compute_bins(
     X_train,
     # NOTE: requires scikit-learn>=1.0 to be installed.
@@ -314,7 +327,7 @@ y_pred = model(x)
 
 # End-to-end examples
 
-See [this Jupyter notebook](./example.ipynb).
+See [this Jupyter notebook](./example.ipynb) (Colab link inside).
 
 # Practical notes
 
@@ -418,7 +431,7 @@ See [this Jupyter notebook](./example.ipynb).
 
 # API
 
-To discover the available API and docstrings, open the source file and:
+To explore the available API and docstrings, open the source file and:
 - On GitHub, use the Symbols panel.
 - In VSCode, use the [Outline view](https://code.visualstudio.com/docs/getstarted/userinterface#_outline-view).
 - Check the `__all__` variable.

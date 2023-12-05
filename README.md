@@ -1,28 +1,11 @@
 # On Embeddings for Numerical Features in Tabular Deep Learning (NeurIPS 2022)
 
+:scroll: [arXiv](https://arxiv.org/abs/2203.05556)
+&nbsp; :package: **[Python package](./package/README.md)**
+&nbsp; :books: [RTDL (other projects on tabular DL)](https://github.com/yandex-research/rtdl)
+
 This is the official implementation of the paper
 "On Embeddings for Numerical Features in Tabular Deep Learning".
-
-> [!NOTE]
-> More precisely, the paper is about embeddings for ***continuous*** features.
-
-<!--
-NOTE: some of the following lines has two spaces in the end
-which translates to line breaks in Markdown.
--->
-
-**Links**
-
-:scroll: [arXiv](https://arxiv.org/abs/2203.05556)  
-:package: [**Python package**](./package/README.md#python-package)  
-:books: [RTDL (other projects on tabular deep learning)](https://github.com/yandex-research/rtdl)
-
-**This document**
-
-[TL;DR](#tldr)  
-[Metrics & Hyperparameters](#how-to-explore-metrics-and-hyperparameters)  
-[How to reproduce the reported results](#how-to-reproduce-the-results)  
-[How to cite](#how-to-cite)
 
 # TL;DR
 
@@ -30,24 +13,20 @@ which translates to line breaks in Markdown.
 before mixing them in the main backbone (e.g. in MLP, Transformer, etc.) improves
 the downstream performance of tabular neural networks.*
 
-<img src="package/overview.png" width=80%>
+<img src="overview.png" width=80%>
 
-*Left: vanilla MLP taking two continuous features as input.
-Right: the same MLP, but now with embeddings for continuous features.*
+*Left: vanilla MLP taking two continuous features as input.*
+<br> *Right: the same MLP, but now with embeddings for continuous features.*
 
 In more detail:
 
-- In the paper, we highlight a major overlooked design aspect of tabular deep learning
-  models, namely, **embeddings for continuous features**, which
-  means transforming scalar continuous features to vectors
-  **before mixing them in the main backbone** as illustrated above.
+- Embedding continuous features means transforming them from scalar representations
+  to vectors **before mixing in the main backbone** as illustrated above.
 - It turns out that **embeddings for continuous features can (significantly) improve
   the performance of tabular DL models**.
 - Embeddings are **applicable to any conventional backbone**.
-  In particular, **simple MLP with embeddings becomes competitive** with
-  heavy Transormer-based models while being significantly more efficient
-  (in other words, embeddings, not the attention module can be the reason why
-  tabular transformers showed their effectiveness in 2021).
+- In particular, **simple MLP with embeddings can be competitive** with
+  heavy Transormer-based models while being significantly more efficient.
 - Despite the formal overhead in terms of parameter count, in practice,
   **embeddings are perfectly affordable in many cases**. On big enough
   datasets and/or with large enough number of features and/or with strict enough latency
@@ -56,19 +35,37 @@ In more detail:
 <details>
 <summary><b>Why do embeddings work?</b></summary>
 
-- Irregularly distributed continuous features (and their irregular joint
-  distributions with labels) is a usual thing in real world tabular data.
-- This may become a major fundamental optimization challenge for tabular DL models
-  because of limitations of SGD-like optimization algorithms.
-- Transforming the input space is one potential way to simplify the optimization
-  problem for SGD-like algorithms.
+Strictly speaking, there is no single explanation.
+Evidently, the embeddings help dealing with various challenges associated
+with continuous features and improve the overall optimization properties of models.
 
-**A great reference** for understanding the aforementioned optimization
-challenge (and a great example of addressing those challenges by transforming input
-space) is the paper
+In particular, irregularly distributed continuous features (and their irregular joint
+distributions with labels) is a usual thing in real world tabular data,
+and they pose a major fundamental optimization challenge for traditional
+tabular DL models.
+**A great reference** for understanding this challenge
+(and a great example of addressing those challenges by transforming input space)
+is the paper
 ["Fourier Features Let Networks Learn High Frequency Functions in Low Dimensional Domains"](https://arxiv.org/abs/2006.10739).
 
+However, it is unclear whether irregular distributions is the only reason
+why the embeddings are useful.
+
 </details>
+
+# Python package
+
+The [Python package](./package/README.md) in the `package/` directory
+is the recommended way to use the paper in practice and for future work.
+
+---
+
+**The rest of the document**:
+- [Metrics & Hyperparameters](#how-to-explore-metrics-and-hyperparameters)
+- [How to reproduce the reported results](#how-to-reproduce-the-results)
+- [How to cite](#how-to-cite)
+
+---
 
 # How to explore metrics and hyperparameters
 
