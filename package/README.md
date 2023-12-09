@@ -126,9 +126,12 @@ y_pred = model_with_embeddings(x)
 ```
 
 In other words, the whole paper is about the fact that having such a thing as
-`m_cont_embeddings` can (significantly) improve the downstream performance,
-and the paper showcases three types of such embeddings:
-simple, periodic and piecewise-linear.
+`m_cont_embeddings` can (significantly) improve the downstream performance.
+
+**The paper showcases three types of such embeddings**:
+- [Simple](#simple-embeddings)
+- [Periodic](#simple-embeddings)
+- [Piecewise-linear](#piecewise-linear-encoding--embeddings)
 
 ## Simple embeddings<!-- omit in toc -->
 
@@ -266,7 +269,7 @@ y_pred = model(x)
 | `QLR` / `TLR`                      | `ReLU(Linear(ple(x_i)))`        | `PiecewiseLinearEmbeddings(bins, activation=True)`  |
 
 In the above table:
-- Q/T ~ quantiles-/tree- based bins, L ~ Linear, R ~ ReLU.
+- Q ~ quantiles-based bins, T ~ tree-based bins, L ~ Linear, R ~ ReLU.
 - `x_i` is the i-th scalar continuous feature.
 - `ple` stands for "Piecewise-linear encoding".
 
@@ -284,7 +287,7 @@ In the above table:
 **Hyperparameters**
 
 - For `PiecewiseLinearEmbeddings`,
-  reasonable starting points are `d_embedding=8, activation=False`
+  possible starting points are `d_embedding=8, activation=False`
   or `d_embedding=24, activation=True`.
 - See other notes on hyperparameters in ["Practical notes"](#practical-notes).
 
