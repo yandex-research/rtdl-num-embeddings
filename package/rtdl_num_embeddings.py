@@ -372,6 +372,28 @@ def compute_bins(
                 ' and verbose must be False'
             )
 
+        _upper = 2**24  # 16_777_216
+        if len(X) > _upper:
+            warnings.warn(
+                f'Computing quantile-based bins for more than {_upper} million objects'
+                ' may not be possible due to the limitation of PyTorch'
+                ' (for details, see https://github.com/pytorch/pytorch/issues/64947).'
+                ' As a workaround, subsample the data, i.e. instead of'
+                '\ncompute_bins(X, ...)'
+                '\ndo'
+                '\ncompute_bins(X[torch.randperm(len(X), device=X.device)[:16_777_216]], ...)'  # noqa
+                '\nOn CUDA, the computation can still fail with OOM even after'
+                ' subsampling. If this is the case, try passing features by groups:'
+                '\nbins = sum('
+                '\n    compute_bins(X[:, idx], ...)'
+                '\n    for idx in torch.arange(len(X), device=X.device).split(group_size),'  # noqa
+                '\n    start=[]'
+                '\n)'
+                '\nAnother option is to perform the computation on CPU:'
+                '\ncompute_bins(X.cpu(), ...)'
+            )
+        del _upper
+
         # NOTE[DIFF]
         # The original implementation in the official paper repository has an
         # unintentional divergence from what is written in the paper.
