@@ -52,7 +52,7 @@ def main(argv: List[str]) -> None:
         if not next(lines)[1].startswith('```python'):
             raise RuntimeError(
                 f'The test header "{test_header}"'
-                ' is not follwed by a Python code blocks'
+                ' is not followed by a Python code blocks'
             )
 
         # >>> Assemble and print the code block.

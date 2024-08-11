@@ -5,7 +5,7 @@
 > -- other projects on tabular deep learning.
 
 This package provides the officially recommended
-implementation of the main things from the paper.
+implementation of the paper "On Embeddings for Numerical Features in Tabular Deep Learning".
 
 <details>
 <summary><i>This package VS The original implementation</i></summary>

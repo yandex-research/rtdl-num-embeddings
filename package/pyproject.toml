@@ -34,22 +34,19 @@ requires-python = ">=3.8"
 Code = "https://github.com/yandex-research/rtdl-num-embeddings/tree/main/package/README.md"
 Documentation = "https://github.com/yandex-research/rtdl-num-embeddings/tree/main/package/README.md"
 
-[tool.black]
-skip_string_normalization = true
-
 [tool.flit.module]
 name = "rtdl_num_embeddings"
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-known_first_party = ["rtdl_num_embeddings"]
 
 [tool.mypy]
 check_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.ruff]
-line-length = 88
-extend-select = ["RUF", "UP", "E101", "E501"]
 target-version = "py38"
+line-length = 88
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+extend-select = ["RUF", "UP", "E101", "E501"]

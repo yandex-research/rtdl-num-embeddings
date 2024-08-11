@@ -18,9 +18,8 @@ doctest:
 	python test_code_blocks.py README.md
 
 lint:
-	isort $(PACKAGE_ROOT) --check-only
-	black $(PACKAGE_ROOT) --check
 	ruff check .
+	ruff format --check
 
 # The order is important.
 pre-commit: clean lint doctest typecheck
