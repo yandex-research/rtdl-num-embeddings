@@ -22,7 +22,6 @@ except ImportError:
 
 import torch
 import torch.nn as nn
-from rtdl_revisiting_models import LinearEmbeddings
 from torch import Tensor
 from torch.nn.parameter import Parameter
 
@@ -30,6 +29,63 @@ try:
     from tqdm import tqdm
 except ImportError:
     tqdm = None
+
+
+def _check_input_shape(x: Tensor, expected_n_features: int) -> None:
+    if x.ndim < 1:
+        raise ValueError(
+            f'The input must have at least one dimension, however: {x.ndim=}'
+        )
+    if x.shape[-1] != expected_n_features:
+        raise ValueError(
+            'The last dimension of the input was expected to be'
+            f' {expected_n_features}, however, {x.shape[-1]=}'
+        )
+
+
+class LinearEmbeddings(nn.Module):
+    """Linear embeddings for continuous features.
+
+    **Shape**
+
+    - Input: `(*, n_features)`
+    - Output: `(*, n_features, d_embedding)`
+
+    **Examples**
+
+    >>> batch_size = 2
+    >>> n_cont_features = 3
+    >>> x = torch.randn(batch_size, n_cont_features)
+    >>> d_embedding = 4
+    >>> m = LinearEmbeddings(n_cont_features, d_embedding)
+    >>> m(x).shape
+    torch.Size([2, 3, 4])
+    """
+
+    def __init__(self, n_features: int, d_embedding: int) -> None:
+        """
+        Args:
+            n_features: the number of continous features.
+            d_embedding: the embedding size.
+        """
+        if n_features <= 0:
+            raise ValueError(f'n_features must be positive, however: {n_features=}')
+        if d_embedding <= 0:
+            raise ValueError(f'd_embedding must be positive, however: {d_embedding=}')
+
+        super().__init__()
+        self.weight = Parameter(torch.empty(n_features, d_embedding))
+        self.bias = Parameter(torch.empty(n_features, d_embedding))
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        d_rqsrt = self.weight.shape[1] ** -0.5
+        nn.init.uniform_(self.weight, -d_rqsrt, d_rqsrt)
+        nn.init.uniform_(self.bias, -d_rqsrt, d_rqsrt)
+
+    def forward(self, x: Tensor) -> Tensor:
+        _check_input_shape(x, self.weight.shape[0])
+        return torch.addcmul(self.bias, self.weight, x[..., None])
 
 
 class LinearReLUEmbeddings(nn.Sequential):
@@ -89,11 +145,7 @@ class _Periodic(nn.Module):
         nn.init.trunc_normal_(self.weight, 0.0, self._sigma, a=-bound, b=bound)
 
     def forward(self, x: Tensor) -> Tensor:
-        if x.ndim < 2:
-            raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
-            )
-
+        _check_input_shape(x, self.weight.shape[0])
         x = 2 * math.pi * self.weight * x[..., None]
         x = torch.cat([torch.cos(x), torch.sin(x)], -1)
         return x
@@ -116,9 +168,16 @@ class _NLinear(nn.Module):
         nn.init.uniform_(self.bias, -d_in_rsqrt, d_in_rsqrt)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        assert x.ndim == 3
+        if x.ndim != 3:
+            raise ValueError(
+                '_NLinear supports only inputs with exactly one batch dimension,'
+                ' so `x` must have a shape like (BATCH_SIZE, N_FEATURES, D_EMBEDDING).'
+            )
         assert x.shape[-(self.weight.ndim - 1) :] == self.weight.shape[:-1]
-        x = (x[..., None, :] @ self.weight).squeeze(-2)
+
+        x = x.transpose(0, 1)
+        x = x @ self.weight
+        x = x.transpose(0, 1)
         x = x + self.bias
         return x
 
@@ -193,11 +252,6 @@ class PeriodicEmbeddings(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         """Do the forward pass."""
-        if x.ndim < 2:
-            raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
-            )
-
         x = self.periodic(x)
         x = self.linear(x)
         if self.activation is not None:
@@ -470,10 +524,7 @@ class _PiecewiseLinearEncodingImpl(nn.Module):
         self._same_bin_count = all(x == self._bin_counts[0] for x in self._bin_counts)
 
     def forward(self, x: Tensor) -> Tensor:
-        if x.ndim < 2:
-            raise ValueError(
-                f'The input must have at least two dimensions, however: {x.ndim=}'
-            )
+        _check_input_shape(x, self.edges.shape[0])
 
         # See Equation 1 in the paper.
         x = (x[..., None] - self.edges) / self.width
