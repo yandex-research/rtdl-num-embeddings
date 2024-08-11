@@ -377,7 +377,8 @@ def compute_bins(
             warnings.warn(
                 f'Computing quantile-based bins for more than {_upper} million objects'
                 ' may not be possible due to the limitation of PyTorch'
-                ' (for details, see https://github.com/pytorch/pytorch/issues/64947).'
+                ' (for details, see https://github.com/pytorch/pytorch/issues/64947;'
+                ' if that issue is successfully resolved, this warning may be irrelevant).'  # noqa
                 ' As a workaround, subsample the data, i.e. instead of'
                 '\ncompute_bins(X, ...)'
                 '\ndo'
