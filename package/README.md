@@ -14,7 +14,7 @@ implementation of the paper "On Embeddings for Numerical Features in Tabular Dee
 used to obtain numbers reported in the paper.
 
 - **This package is recommended over the original implementation**:
-  the package is significanty simpler
+  the package is significantly simpler
   while being fully consistent with the original code
   (with one minor exception: there is one accidental divergence
   of the original code from the paper, which is now fixed in the package)
@@ -135,7 +135,7 @@ In other words, the whole paper is about the fact that having such a thing as
 
 ## Simple embeddings<!-- omit in toc -->
 
-*(Decribed in Section 3.4 in the paper)*
+*(Described in Section 3.4 in the paper)*
 
 | Name | Definition for a single feature | How to create               |
 | :--- | :------------------------------ | :-------------------------- |
@@ -174,7 +174,7 @@ where embeddings consist of three steps:
 2. Then, ReLU is applied.
    At this point, the embedding is equivalent to `LinearReLUEmbeddings`.
 3. Finally, feature embeddings are project to a lower dimension,
-   where *separete* (i.e. non-shared) linear projections are learned
+   where *separate* (i.e. non-shared) linear projections are learned
    for all feature.
 
 <!-- test main _ -->
@@ -200,7 +200,7 @@ y_pred = model(x)
 
 ## Periodic embeddings<!-- omit in toc -->
 
-*(Decribed in Section 3.3 in the paper)*
+*(Described in Section 3.3 in the paper)*
 
 | Name        | Definition for a single feature                                            | How to create                                           |
 | :---------- | :------------------------------------------------------------------------- | :------------------------------------------------------ |
@@ -258,7 +258,7 @@ y_pred = model(x)
 
 ## Piecewise-linear encoding & embeddings<!-- omit in toc -->
 
-*(Decribed in Section 3.2 in the paper)*
+*(Described in Section 3.2 in the paper)*
 
 <img src="piecewise-linear-encoding.png" width=40%>
 
@@ -368,7 +368,7 @@ See [this Jupyter notebook](./example.ipynb) (Colab link inside).
 `PiecewiseLinearEncoding` & `PiecewiseLinearEmbeddings`:
 - Why trying this if the periodic embeddings are better on average?
   There is no single reason, rather a range of small things that
-  can make piecewise-linear representations preferrable in some cases:
+  can make piecewise-linear representations preferable in some cases:
   - To start with, they just work well on some problems.
   - They make a model less sensitive to feature preprocessing:
     (1) standardization (`sklearn.preprocessing.StandardScaler`)

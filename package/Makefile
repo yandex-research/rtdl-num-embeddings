@@ -14,15 +14,16 @@ clean:
 	rm -rf dist
 
 doctest:
-	xdoctest $(PACKAGE_ROOT)
-	python test_code_blocks.py README.md
+	pixi run -e test xdoctest $(PACKAGE_ROOT)
+	pixi run -e test python test_code_blocks.py README.md
 
 lint:
-	ruff check .
-	ruff format --check
+	pixi run -e test typos
+	pixi run -e test ruff check .
+	pixi run -e test ruff format --check
 
 # The order is important.
 pre-commit: clean lint doctest typecheck
 
 typecheck:
-	mypy $(PACKAGE_ROOT)
+	pixi run -e test mypy $(PACKAGE_ROOT)

@@ -12,7 +12,8 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["torch >=1.8,<3"]
+# NOTE: the following dependencies must be in line with the default Pixi dependencies below.
+dependencies = ["torch >=1.12,<3"]
 
 dynamic = ["version", "description"]
 keywords = [
@@ -28,11 +29,45 @@ keywords = [
 ]
 license = { file = "LICENSE" }
 name = "rtdl_num_embeddings"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 [project.urls]
 Code = "https://github.com/yandex-research/rtdl-num-embeddings/tree/main/package/README.md"
 Documentation = "https://github.com/yandex-research/rtdl-num-embeddings/tree/main/package/README.md"
+
+[tool.pixi.project]
+channels = ["conda-forge", "pytorch"]
+platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+rtdl_num_embeddings = { path = ".", editable = true }
+
+# NOTE: the following dependencies must be in line with the Python package dependencies above.
+[tool.pixi.dependencies]
+numpy = "1.19.5"
+python = "3.9.*"
+pytorch = { version = "1.12.*", channel = "pytorch" }
+scikit-learn = "1.0.2"
+
+[tool.pixi.feature.dev.dependencies]
+ruff = "0.7.2"
+jupyterlab = "4.3.0"
+
+[tool.pixi.feature.test.dependencies]
+mypy = "1.11.2"
+pre-commit-hooks = "4.6.0"
+ruff = "0.6.8"
+xdoctest = "1.2.0"
+tomli = "2.0.1"
+typos = "1.25.0"
+
+[tool.pixi.feature.test.pypi-dependencies]
+delu = "==0.0.25"
+rtdl_revisiting_models = "==0.0.2"
+
+[tool.pixi.environments]
+dev = ["dev"]
+test = ["test"]
 
 [tool.flit.module]
 name = "rtdl_num_embeddings"
@@ -42,11 +77,11 @@ check_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 88
 
 [tool.ruff.format]
 quote-style = "single"
 
 [tool.ruff.lint]
-extend-select = ["RUF", "UP", "E101", "E501"]
+extend-select = ["RUF", "UP", "E101", "E501", "E731"]

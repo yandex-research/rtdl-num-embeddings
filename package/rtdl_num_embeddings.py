@@ -65,7 +65,7 @@ class LinearEmbeddings(nn.Module):
     def __init__(self, n_features: int, d_embedding: int) -> None:
         """
         Args:
-            n_features: the number of continous features.
+            n_features: the number of continuous features.
             d_embedding: the embedding size.
         """
         if n_features <= 0:
@@ -342,7 +342,7 @@ def compute_bins(
         A list of bin edges for all features. For one feature:
 
         - the maximum possible number of bin edges is ``n_bins + 1``.
-        - the minumum possible number of bin edges is ``1``.
+        - the minimum possible number of bin edges is ``1``.
     """
     if not isinstance(X, Tensor):
         raise ValueError(f'X must be a PyTorch tensor, however: {type(X)=}')
