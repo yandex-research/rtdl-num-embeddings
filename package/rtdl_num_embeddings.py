@@ -1,8 +1,9 @@
 """On Embeddings for Numerical Features in Tabular Deep Learning."""
 
-__version__ = '0.0.10'
+__version__ = '0.0.11.dev0'
 
 __all__ = [
+    'LinearEmbeddings',
     'LinearReLUEmbeddings',
     'PeriodicEmbeddings',
     'compute_bins',
@@ -13,7 +14,7 @@ __all__ = [
 import math
 import warnings
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Literal, Optional, Union
 
 try:
     import sklearn.tree as sklearn_tree
@@ -84,12 +85,13 @@ class LinearEmbeddings(nn.Module):
         nn.init.uniform_(self.bias, -d_rqsrt, d_rqsrt)
 
     def forward(self, x: Tensor) -> Tensor:
+        """Do the forward pass."""
         _check_input_shape(x, self.weight.shape[0])
         return torch.addcmul(self.bias, self.weight, x[..., None])
 
 
 class LinearReLUEmbeddings(nn.Sequential):
-    """LR (L ~ Linear, R ~ ReLU) embeddings for continuous features.
+    """Simple non-linear embeddings for continuous features.
 
     **Shape**
 
@@ -102,8 +104,8 @@ class LinearReLUEmbeddings(nn.Sequential):
     >>> n_cont_features = 3
     >>> x = torch.randn(batch_size, n_cont_features)
     >>>
-    >>> # By default, d_embedding=32.
-    >>> m = LinearReLUEmbeddings(n_cont_features)
+    >>> d_embedding = 32
+    >>> m = LinearReLUEmbeddings(n_cont_features, d_embedding)
     >>> m(x).shape
     torch.Size([2, 3, 32])
     """
@@ -124,8 +126,11 @@ class LinearReLUEmbeddings(nn.Sequential):
 
 class _Periodic(nn.Module):
     """
-    WARNING: the direct usage of this module is discouraged
-    (do this only if you understand why this warning is here).
+    NOTE: THIS MODULE SHOULD NOT BE USED DIRECTLY.
+
+    Technically, this is a linear embedding without bias followed by
+    the periodic activations. The scale of the initialization
+    (defined by the `sigma` argument) plays an important role.
     """
 
     def __init__(self, n_features: int, k: int, sigma: float) -> None:
@@ -138,6 +143,7 @@ class _Periodic(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
+        """Reset the parameters."""
         # NOTE[DIFF]
         # Here, extreme values (~0.3% probability) are explicitly avoided just in case.
         # In the paper, there was no protection from extreme values.
@@ -145,6 +151,7 @@ class _Periodic(nn.Module):
         nn.init.trunc_normal_(self.weight, 0.0, self._sigma, a=-bound, b=bound)
 
     def forward(self, x: Tensor) -> Tensor:
+        """Do the forward pass."""
         _check_input_shape(x, self.weight.shape[0])
         x = 2 * math.pi * self.weight * x[..., None]
         x = torch.cat([torch.cos(x), torch.sin(x)], -1)
@@ -154,20 +161,29 @@ class _Periodic(nn.Module):
 # _NLinear is a simplified copy of delu.nn.NLinear:
 # https://yura52.github.io/delu/stable/api/generated/delu.nn.NLinear.html
 class _NLinear(nn.Module):
-    """N *separate* linear layers for N feature embeddings."""
+    """N *separate* linear layers for N feature embeddings.
 
-    def __init__(self, n: int, in_features: int, out_features: int) -> None:
+    In other words,
+    each feature embedding is transformed by its own dedicated linear layer.
+    """
+
+    def __init__(
+        self, n: int, in_features: int, out_features: int, bias: bool = True
+    ) -> None:
         super().__init__()
         self.weight = Parameter(torch.empty(n, in_features, out_features))
-        self.bias = Parameter(torch.empty(n, out_features))
+        self.bias = Parameter(torch.empty(n, out_features)) if bias else None
         self.reset_parameters()
 
     def reset_parameters(self):
+        """Reset the parameters."""
         d_in_rsqrt = self.weight.shape[-2] ** -0.5
         nn.init.uniform_(self.weight, -d_in_rsqrt, d_in_rsqrt)
-        nn.init.uniform_(self.bias, -d_in_rsqrt, d_in_rsqrt)
+        if self.bias is not None:
+            nn.init.uniform_(self.bias, -d_in_rsqrt, d_in_rsqrt)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Do the forward pass."""
         if x.ndim != 3:
             raise ValueError(
                 '_NLinear supports only inputs with exactly one batch dimension,'
@@ -178,12 +194,15 @@ class _NLinear(nn.Module):
         x = x.transpose(0, 1)
         x = x @ self.weight
         x = x.transpose(0, 1)
-        x = x + self.bias
+        if self.bias is not None:
+            x = x + self.bias
         return x
 
 
 class PeriodicEmbeddings(nn.Module):
-    """PL & PLR & PLR(lite) (P ~ Periodic, L ~ Linear, R ~ ReLU) embeddings for continuous features.
+    """Embeddings for continuous features based on periodic activations.
+
+    See README for details.
 
     **Shape**
 
@@ -196,13 +215,12 @@ class PeriodicEmbeddings(nn.Module):
     >>> n_cont_features = 3
     >>> x = torch.randn(batch_size, n_cont_features)
     >>>
-    >>> # PLR embeddings (by default, d_embedding=24).
-    >>> m = PeriodicEmbeddings(n_cont_features, lite=False)
+    >>> d_embedding = 24
+    >>> m = PeriodicEmbeddings(n_cont_features, d_embedding, lite=False)
     >>> m(x).shape
     torch.Size([2, 3, 24])
     >>>
-    >>> # PLR(lite) embeddings.
-    >>> m = PeriodicEmbeddings(n_cont_features, lite=True)
+    >>> m = PeriodicEmbeddings(n_cont_features, d_embedding, lite=True)
     >>> m(x).shape
     torch.Size([2, 3, 24])
     >>>
@@ -230,19 +248,19 @@ class PeriodicEmbeddings(nn.Module):
                 (denoted as "k" in Section 3.3 in the paper).
             frequency_init_scale: the initialization scale for the first linear layer
                 (denoted as "sigma" in Section 3.3 in the paper).
-                **This is an important hyperparameter**,
-                see the documentation for details.
-            activation: if True, the embeddings is PLR, otherwise, it is PL.
-            lite: if True, the last linear layer (the "L" step)
-                is shared between all features. See the README.md document for details.
+                **This is an important hyperparameter**, see README for details.
+            activation: if `False`, the ReLU activation is not applied.
+                Must be `True` if ``lite=True``.
+            lite: if True, the outer linear layer is shared between all features.
+                See README for details.
         """
         super().__init__()
         self.periodic = _Periodic(n_features, n_frequencies, frequency_init_scale)
         self.linear: Union[nn.Linear, _NLinear]
         if lite:
             # NOTE[DIFF]
-            # The PLR(lite) variation was not covered in this paper about embeddings,
-            # but it was used in the paper about the TabR model.
+            # The lite variation was introduced in a different paper
+            # (about the TabR model).
             if not activation:
                 raise ValueError('lite=True is allowed only when activation=True')
             self.linear = nn.Linear(2 * n_frequencies, d_embedding)
@@ -259,7 +277,7 @@ class PeriodicEmbeddings(nn.Module):
         return x
 
 
-def _check_bins(bins: List[Tensor]) -> None:
+def _check_bins(bins: list[Tensor]) -> None:
     if not bins:
         raise ValueError('The list of bins must not be empty')
     for i, feature_bins in enumerate(bins):
@@ -301,21 +319,21 @@ def compute_bins(
     X: torch.Tensor,
     n_bins: int = 48,
     *,
-    tree_kwargs: Optional[Dict[str, Any]] = None,
+    tree_kwargs: Optional[dict[str, Any]] = None,
     y: Optional[Tensor] = None,
     regression: Optional[bool] = None,
     verbose: bool = False,
-) -> List[Tensor]:
-    """Compute bin edges for `PiecewiseLinearEmbeddings`.
+) -> list[Tensor]:
+    """Compute the bin boundaries for `PiecewiseLinearEncoding` and `PiecewiseLinearEmbeddings`.
 
     **Usage**
 
-    Computing the quantile-based bins (Section 3.2.1 in the paper):
+    Compute bins using quantiles (Section 3.2.1 in the paper):
 
     >>> X_train = torch.randn(10000, 2)
     >>> bins = compute_bins(X_train)
 
-    Computing the tree-based bins (Section 3.2.2 in the paper):
+    Compute bins using decision trees (Section 3.2.2 in the paper):
 
     >>> X_train = torch.randn(10000, 2)
     >>> y_train = torch.randn(len(X_train))
@@ -330,20 +348,21 @@ def compute_bins(
         X: the training features.
         n_bins: the number of bins.
         tree_kwargs: keyword arguments for `sklearn.tree.DecisionTreeRegressor`
-            (if ``regression`` is `True`) or `sklearn.tree.DecisionTreeClassifier`
-            (if ``regression`` is `False`).
+            (if ``regression=True``) or `sklearn.tree.DecisionTreeClassifier`
+            (if ``regression=False``).
             NOTE: requires ``scikit-learn>=1.0,>2`` to be installed.
         y: the training labels (must be provided if ``tree`` is not None).
         regression: whether the labels are regression labels
             (must be provided if ``tree`` is not None).
         verbose: if True and ``tree_kwargs`` is not None, than ``tqdm``
             (must be installed) will report the progress while fitting trees.
+
     Returns:
         A list of bin edges for all features. For one feature:
 
         - the maximum possible number of bin edges is ``n_bins + 1``.
         - the minimum possible number of bin edges is ``1``.
-    """
+    """  # noqa: E501
     if not isinstance(X, Tensor):
         raise ValueError(f'X must be a PyTorch tensor, however: {type(X)=}')
     if X.ndim != 2:
@@ -396,20 +415,14 @@ def compute_bins(
         del _upper
 
         # NOTE[DIFF]
-        # The original implementation in the official paper repository has an
-        # unintentional divergence from what is written in the paper.
-        # This package implements the algorithm described in the paper,
-        # and it is recommended for future work
-        # (this may affect the optimal number of bins
-        #  reported in the official repository).
-        #
-        # Additional notes:
-        # - this is the line where the divergence happens:
-        #   (the thing is that limiting the number of quantiles by the number of
-        #   distinct values is NOT the same as removing identical quantiles
-        #   after computing them)
-        #   https://github.com/yandex-research/tabular-dl-num-embeddings/blob/c1d9eb63c0685b51d7e1bc081cdce6ffdb8886a8/bin/train4.py#L612C30-L612C30
-        # - for the tree-based bins, there is NO such divergence;
+        # The code below is more correct than the original implementation,
+        # because the original implementation contains an unintentional divergence
+        # from what is written in the paper. That divergence affected only the
+        # quantile-based embeddings, but not the tree-based embeddings.
+        # For historical reference, here is the original, less correct, implementation:
+        # https://github.com/yandex-research/tabular-dl-num-embeddings/blob/c1d9eb63c0685b51d7e1bc081cdce6ffdb8886a8/bin/train4.py#L612C30-L612C30
+        # (explanation: limiting the number of quantiles by the number of distinct
+        #  values is NOT the same as removing identical quantiles after computing them).
         bins = [
             q.unique()
             for q in torch.quantile(
@@ -418,6 +431,7 @@ def compute_bins(
         ]
         _check_bins(bins)
         return bins
+
     else:
         if sklearn_tree is None:
             raise RuntimeError(
@@ -483,142 +497,188 @@ def compute_bins(
 
 
 class _PiecewiseLinearEncodingImpl(nn.Module):
-    # NOTE
-    # 1. DO NOT USE THIS CLASS DIRECTLY (ITS OUTPUT CONTAINS INFINITE VALUES).
-    # 2. This implementation is not memory efficient for cases when there are many
-    #    features with low number of bins and only few features
-    #    with high number of bins. If this becomes a problem,
-    #    just split features into groups and encode the groups separately.
+    """Piecewise-linear encoding.
 
-    # The output of this module has the shape (*batch_dims, n_features, max_n_bins),
-    # where max_n_bins = max(map(len, bins)) - 1.
-    # If the i-th feature has the number of bins less than max_n_bins,
-    # then its piecewise-linear representation is padded with inf as follows:
-    # [x_1, x_2, ..., x_k, inf, ..., inf]
-    # where:
-    #            x_1 <= 1.0
-    #     0.0 <= x_i <= 1.0 (for i in range(2, k))
-    #     0.0 <= x_k
-    #     k == len(bins[i]) - 1  (the number of bins for the i-th feature)
+    NOTE: THIS CLASS SHOULD NOT BE USED DIRECTLY.
+    In particular, this class does *not* add any positional information
+    to feature encodings. Thus, for Transformer-like models,
+    `PiecewiseLinearEmbeddings` is the only valid option.
 
-    # If all features have the same number of bins, then there are no infinite values.
+    Note:
+        This is the *encoding* module, not the *embedding* module,
+        so it only implements Equation 1 (Figure 1) from the paper,
+        and does not have trainable parameters.
 
-    edges: Tensor
-    width: Tensor
-    mask: Tensor
+    **Shape**
 
-    def __init__(self, bins: List[Tensor]) -> None:
-        _check_bins(bins)
+    * Input: ``(*, n_features)``
+    * Output: ``(*, n_features, max_n_bins)``,
+      where ``max_n_bins`` is the maximum number of bins over all features:
+      ``max_n_bins = max(len(b) - 1 for b in bins)``.
 
+    To understand the output structure,
+    consider a feature with the number of bins ``n_bins``.
+    Formally, its piecewise-linear encoding is a vector of the size ``n_bins``
+    that looks as follows::
+
+        x_ple = [1, ..., 1, (x - this_bin_left_edge) / this_bin_width, 0, ..., 0]
+
+    However, this class will instead produce a vector of the size ``max_n_bins``::
+
+        x_ple_actual = [*x_ple[:-1], *zeros(max_n_bins - n_bins), x_ple[-1]]
+
+    In other words:
+
+    * The last encoding component is **always** located in the end,
+      even if ``n_bins == 1`` (i.e. even if it is the only component).
+    * The leading ``n_bins - 1`` components are located in the beginning.
+    * Everything in-between is always set to zeros (like "padding", but in the middle).
+
+    This implementation is *significantly* faster than the original one.
+    It relies on two key observations:
+
+    * The piecewise-linear encoding is just
+      a non-trainable linear transformation followed by a clamp-based activation.
+      Pseudocode: `PiecewiseLinearEncoding(x) = Activation(Linear(x))`.
+      The parameters of the linear transformation are defined by the bin edges.
+    * Aligning the *last* encoding channel across all features
+      allows applying the aforementioned activation simultaneously to all features
+      without the loop over features.
+    """
+
+    weight: Tensor
+    """The weight of the linear transformation mentioned in the class docstring."""
+
+    bias: Tensor
+    """The bias of the linear transformation mentioned in the class docstring."""
+
+    single_bin_mask: Optional[Tensor]
+    """The indicators of the features with only one bin."""
+
+    mask: Optional[Tensor]
+    """The indicators of the "valid" (i.e. "non-padding") part of the encoding."""
+
+    def __init__(self, bins: list[Tensor]) -> None:
+        """
+        Args:
+            bins: the bins computed by `compute_bins`.
+        """
+        assert len(bins) > 0
         super().__init__()
-        # To stack bins to a tensor, all features must have the same number of bins.
-        # To achieve that, for each feature with a less-than-max number of bins,
-        # its bins are padded with additional phantom bins with infinite edges.
-        max_n_edges = max(len(x) for x in bins)
-        padding = torch.full(
-            (max_n_edges,),
-            math.inf,
-            dtype=bins[0].dtype,
-            device=bins[0].device,
-        )
-        edges = torch.row_stack([torch.cat([x, padding])[:max_n_edges] for x in bins])
 
-        # The rightmost edge is needed only to compute the width of the rightmost bin.
-        self.register_buffer('edges', edges[:, :-1])
-        self.register_buffer('width', edges.diff())
-        # mask is false for the padding values.
+        n_features = len(bins)
+        n_bins = [len(x) - 1 for x in bins]
+        max_n_bins = max(n_bins)
+
+        self.register_buffer('weight', torch.zeros(n_features, max_n_bins))
+        self.register_buffer('bias', torch.zeros(n_features, max_n_bins))
+
+        single_bin_mask = torch.tensor(n_bins) == 1
+        self.register_buffer(
+            'single_bin_mask', single_bin_mask if single_bin_mask.any() else None
+        )
+
         self.register_buffer(
             'mask',
-            torch.row_stack(
+            # The mask is needed if features have different number of bins.
+            None
+            if all(len(x) == len(bins[0]) for x in bins)
+            else torch.row_stack(
                 [
                     torch.cat(
                         [
-                            torch.ones(len(x) - 1, dtype=torch.bool, device=x.device),
-                            torch.zeros(
-                                max_n_edges - 1, dtype=torch.bool, device=x.device
-                            ),
+                            # The number of bins for this feature, minus 1:
+                            torch.ones((len(x) - 1) - 1, dtype=torch.bool),
+                            # Unused components (always zeros):
+                            torch.zeros(max_n_bins - (len(x) - 1), dtype=torch.bool),
+                            # The last bin:
+                            torch.ones(1, dtype=torch.bool),
                         ]
-                    )[: max_n_edges - 1]
+                    )
+                    # x is a tensor containing the bin bounds for a given feature.
                     for x in bins
                 ]
             ),
         )
-        self._bin_counts = tuple(len(x) - 1 for x in bins)
-        self._same_bin_count = all(x == self._bin_counts[0] for x in self._bin_counts)
+
+        for i, bin_edges in enumerate(bins):
+            # Formally, the piecewise-linear encoding of one feature looks as follows:
+            # `[1, ..., 1, (x - this_bin_left_edge) / this_bin_width, 0, ..., 0]`
+            # The linear transformation based on the weight and bias defined below
+            # implements the expression in the middle before the clipping to [0, 1].
+            # Note that the actual encoding layout produced by this class
+            # is slightly different. See the docstring of this class for details.
+            bin_width = bin_edges.diff()
+            w = 1.0 / bin_width
+            b = -bin_edges[:-1] / bin_width
+            # The last encoding component:
+            self.weight[i, -1] = w[-1]
+            self.bias[i, -1] = b[-1]
+            # The leading encoding components:
+            self.weight[i, : n_bins[i] - 1] = w[:-1]
+            self.bias[i, : n_bins[i] - 1] = b[:-1]
+            # All in-between components will always be zeros,
+            # because the weight and bias are initialized with zeros.
+
+    def get_max_n_bins(self) -> int:
+        return self.weight.shape[-1]
 
     def forward(self, x: Tensor) -> Tensor:
-        _check_input_shape(x, self.edges.shape[0])
-
-        # See Equation 1 in the paper.
-        x = (x[..., None] - self.edges) / self.width
-
-        # If the number of bins is greater than 1, then, the following rules must
-        # be applied to a piecewise-linear encoding of a single feature:
-        # - the leftmost value can be negative, but not greater than 1.0.
-        # - the rightmost value can be greater than 1.0, but not negative.
-        # - the intermediate values must stay within [0.0, 1.0].
-        n_bins = x.shape[-1]
-        if n_bins > 1:
-            if self._same_bin_count:
-                x = torch.cat(
-                    [
-                        x[..., :1].clamp_max(1.0),
-                        *([] if n_bins == 2 else [x[..., 1:-1].clamp(0.0, 1.0)]),
-                        x[..., -1:].clamp_min(0.0),
-                    ],
-                    dim=-1,
-                )
-            else:
-                # In this case, the rightmost values for all features are located
-                # in different columns.
-                x = torch.stack(
-                    [
-                        x[..., i, :]
-                        if count == 1
-                        else torch.cat(
-                            [
-                                x[..., i, :1].clamp_max(1.0),
-                                *(
-                                    []
-                                    if n_bins == 2
-                                    else [x[..., i, 1 : count - 1].clamp(0.0, 1.0)]
-                                ),
-                                x[..., i, count - 1 : count].clamp_min(0.0),
-                                x[..., i, count:],
-                            ],
-                            dim=-1,
+        """Do the forward pass."""
+        x = torch.addcmul(self.bias, self.weight, x[..., None])
+        if x.shape[-1] > 1:
+            x = torch.cat(
+                [
+                    x[..., :1].clamp_max(1.0),
+                    x[..., 1:-1].clamp(0.0, 1.0),
+                    (
+                        x[..., -1:].clamp_min(0.0)
+                        if self.single_bin_mask is None
+                        else torch.where(
+                            # For features with only one bin,
+                            # the whole "piecewise-linear" encoding effectively behaves
+                            # like mix-max scaling
+                            # (assuming that the edges of the single bin
+                            #  are the minimum and maximum feature values).
+                            self.single_bin_mask[..., None],
+                            x[..., -1:],
+                            x[..., -1:].clamp_min(0.0),
                         )
-                        for i, count in enumerate(self._bin_counts)
-                    ],
-                    dim=-2,
-                )
+                    ),
+                ],
+                dim=-1,
+            )
         return x
 
 
 class PiecewiseLinearEncoding(nn.Module):
     """Piecewise-linear encoding.
 
+    See README for detailed explanation.
+
     **Shape**
 
     - Input: ``(*, n_features)``
-    - Output: ``(*, n_features, total_n_bins)``,
+    - Output: ``(*, total_n_bins)``,
       where ``total_n_bins`` is the total number of bins for all features:
       ``total_n_bins = sum(len(b) - 1 for b in bins)``.
+
+    Technically, the output of this module is the flattened output
+    of `_PiecewiseLinearEncoding` with all "padding" values removed.
     """
 
-    def __init__(self, bins: List[Tensor]) -> None:
+    def __init__(self, bins: list[Tensor]) -> None:
         """
         Args:
             bins: the bins computed by `compute_bins`.
         """
-        _check_bins(bins)
-
         super().__init__()
         self.impl = _PiecewiseLinearEncodingImpl(bins)
 
     def forward(self, x: Tensor) -> Tensor:
+        """Do the forward pass."""
         x = self.impl(x)
-        return x.flatten(-2) if self.impl._same_bin_count else x[:, self.impl.mask]
+        return x.flatten(-2) if self.impl.mask is None else x[:, self.impl.mask]
 
 
 class PiecewiseLinearEmbeddings(nn.Module):
@@ -626,40 +686,75 @@ class PiecewiseLinearEmbeddings(nn.Module):
 
     **Shape**
 
-    - Input: ``(*, n_features)``
-    - Output: ``(*, n_features, d_embedding)``
+    - Input: ``(batch_size, n_features)``
+    - Output: ``(batch_size, n_features, d_embedding)``
     """
 
     def __init__(
-        self, bins: List[Tensor], d_embedding: int, *, activation: bool
+        self,
+        bins: list[Tensor],
+        d_embedding: int,
+        *,
+        activation: bool,
+        version: Literal[None, 'A', 'B'] = None,
     ) -> None:
         """
         Args:
             bins: the bins computed by `compute_bins`.
             d_embedding: the embedding size.
-            activation: if False, the embedding becomes what is called "Q-L"/"T-L"
-                in Table 2 in the paper (depending on how bins were computed).
-                Otherwise, the embedding is "Q-LR"/"T-LR".
+            activation: if True, the ReLU activation is additionally applied in the end.
+            version: the preset for various implementation details, such as
+                parametrization and initialization. See README for details.
         """
         if d_embedding <= 0:
             raise ValueError(
                 f'd_embedding must be a positive integer, however: {d_embedding=}'
             )
         _check_bins(bins)
+        if version is None:
+            warnings.warn(
+                'The `version` argument is not provided, so version="A" will be used'
+                ' for backward compatibility.'
+                ' See README for recommendations regarding `version`.'
+                ' In future, omitting this argument will result in an exception.'
+            )
+            version = 'A'
 
         super().__init__()
+        n_features = len(bins)
+        # NOTE[DIFF]
+        # version="B" was introduced in a different paper (about the TabM model).
+        is_version_B = version == 'B'
+
+        self.linear0 = (
+            LinearEmbeddings(n_features, d_embedding) if is_version_B else None
+        )
         self.impl = _PiecewiseLinearEncodingImpl(bins)
-        self.linear = _NLinear(len(bins), max(self.impl._bin_counts), d_embedding)
+        self.linear = _NLinear(
+            len(bins),
+            self.impl.get_max_n_bins(),
+            d_embedding,
+            # For the version "B", the bias is already presented in self.linear0.
+            bias=not is_version_B,
+        )
+        if is_version_B:
+            # Because of the following line, at initialization,
+            # the whole embedding behaves like a linear embedding.
+            # The piecewise-linear component is incrementally learnt during training.
+            nn.init.zeros_(self.linear.weight)
         self.activation = nn.ReLU() if activation else None
 
     def forward(self, x: Tensor) -> Tensor:
-        x = self.impl(x)
-        if not self.impl._same_bin_count:
-            # Replace infinite values with zeros.
-            x = torch.where(
-                self.impl.mask, x, torch.tensor(0.0, dtype=x.dtype, device=x.device)
+        """Do the forward pass."""
+        if x.ndim != 2:
+            raise ValueError(
+                'For now, only inputs with exactly one batch dimension are supported.'
             )
-        x = self.linear(x)
+
+        x_linear = None if self.linear0 is None else self.linear0(x)
+
+        x_ple = self.impl(x)
+        x_ple = self.linear(x_ple)
         if self.activation is not None:
-            x = self.activation(x)
-        return x
+            x_ple = self.activation(x_ple)
+        return x_ple if x_linear is None else x_linear + x_ple

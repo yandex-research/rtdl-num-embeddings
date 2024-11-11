@@ -12,7 +12,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-# NOTE: the following dependencies must be in line with the default Pixi dependencies below.
+# NOTE: the following dependencies must be in line with `[tool.pixi.dependencies]` below.
 dependencies = ["torch >=1.12,<3"]
 
 dynamic = ["version", "description"]
@@ -39,24 +39,29 @@ Documentation = "https://github.com/yandex-research/rtdl-num-embeddings/tree/mai
 channels = ["conda-forge", "pytorch"]
 platforms = ["linux-64", "osx-arm64", "osx-64", "win-64"]
 
+# NOTE: the following dependencies must be in line with `[dependencies]` above.
+[tool.pixi.dependencies]
+numpy = "1.19.5"
+python = "3.9.20"
+pytorch = { version = "1.12.1", channel = "pytorch" }
+scikit-learn = "1.0.2"
+
 [tool.pixi.pypi-dependencies]
 rtdl_num_embeddings = { path = ".", editable = true }
 
-# NOTE: the following dependencies must be in line with the Python package dependencies above.
-[tool.pixi.dependencies]
-numpy = "1.19.5"
-python = "3.9.*"
-pytorch = { version = "1.12.*", channel = "pytorch" }
-scikit-learn = "1.0.2"
-
 [tool.pixi.feature.dev.dependencies]
-ruff = "0.7.2"
+flit = "3.10.1"
 jupyterlab = "4.3.0"
+pdoc = "14.4.0"
+tqdm = "4.67.0"
+
+[tool.pixi.feature.dev.tasks]
+docs = "pdoc -d google --math --no-include-undocumented rtdl_num_embeddings.py"
 
 [tool.pixi.feature.test.dependencies]
 mypy = "1.11.2"
 pre-commit-hooks = "4.6.0"
-ruff = "0.6.8"
+ruff = "0.7.2"
 xdoctest = "1.2.0"
 tomli = "2.0.1"
 typos = "1.25.0"
@@ -65,12 +70,21 @@ typos = "1.25.0"
 delu = "==0.0.25"
 rtdl_revisiting_models = "==0.0.2"
 
+[tool.pixi.feature.test.tasks]
+doctest = "xdoctest rtdl_num_embeddings.py && python test_code_blocks.py README.md"
+lint = "typos && ruff check . && ruff format --check"
+typecheck = "mypy rtdl_num_embeddings.py"
+
 [tool.pixi.environments]
-dev = ["dev"]
-test = ["test"]
+default = { solve-group = "default" }
+dev = { features = ["dev", "test"], solve-group = "default" }
+test = { features = ["test"], solve-group = "default" }
 
 [tool.flit.module]
 name = "rtdl_num_embeddings"
+
+[tool.flit.sdist]
+exclude = ["pixi.lock"]
 
 [tool.mypy]
 check_untyped_defs = true

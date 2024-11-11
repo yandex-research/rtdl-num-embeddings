@@ -1,72 +1,66 @@
 # Python package <!-- omit in toc -->
 
-> [!NOTE]
-> See also [RTDL](https://github.com/yandex-research/rtdl)
-> -- other projects on tabular deep learning.
+:scroll: [arXiv](https://arxiv.org/abs/2203.05556)
+&nbsp; :books: [Other tabular DL projects](https://github.com/yandex-research/rtdl)
 
 This package provides the officially recommended
 implementation of the paper "On Embeddings for Numerical Features in Tabular Deep Learning".
 
-<details>
-<summary><i>This package VS The original implementation</i></summary>
-
-"Original implementation" is the code in `bin/` and `lib/`
-used to obtain numbers reported in the paper.
-
-- **This package is recommended over the original implementation**:
-  the package is significantly simpler
-  while being fully consistent with the original code
-  (with one minor exception: there is one accidental divergence
-  of the original code from the paper, which is now fixed in the package)
-- Strictly speaking, the package may have
-  small technical divergences from the original code.
-  Just in case, they are marked
-  with `# NOTE[DIFF]` comments in the source code of this package.
-  Any divergence from the original implementation without the `# NOTE[DIFF]` comment
-  is considered to be a bug.
-
-</details>
-
-
-> [!IMPORTANT]
-> For a long time, in the main branch of the
-> [RTDL](https://github.com/yandex-research/rtdl) project,
-> there was an *unfinished* implementation of this paper with many unresolved issues.
-> It is *highly* recommended to switch to this package.
+> [!NOTE]
+> This package is strongly recommended over prior implementations,
+> including the original one used in the paper.
+>
+> <details>
+>
+> 1. Compared to the original implementation (the `bin` and `lib` directories),
+>    the code in this package is better across all dimensions: correctness, clarity, efficiency.
+>    Some differences between this package and the original implementation are explained
+>    in the source code of this package in the comments marked with `NOTE[DIFF]`.
+> 2. Long time ago, there was also an **unfinished** implementation in the old, and now deprecated,
+>    `rtdl` package. If, by any chance, you used it, please, switch to this package.
+> </details>
 
 ---
 
 - [Installation](#installation)
 - [Usage](#usage)
-- [End-to-end examples](#end-to-end-examples)
+  - [Basics](#basics)
+  - [Simple embeddings](#simple-embeddings)
+  - [Piecewise-linear encoding \& embeddings](#piecewise-linear-encoding--embeddings)
+  - [Periodic embeddings](#periodic-embeddings)
+- [Examples](#examples)
 - [Practical notes](#practical-notes)
+  - [General comments](#general-comments)
+  - [Which embeddings to choose?](#which-embeddings-to-choose)
+  - [Hyperparameters](#hyperparameters)
+  - [Tips](#tips)
 - [API](#api)
 - [Development](#development)
 
 # Installation
 
-> [!NOTE]
-> If you are *not* going to use
-> the decision-tree-based bin computation (`compute_bins(..., tree_kwargs={...})`),
-> then you can omit the installation of `scikit-learn`.
-
 *(RTDL ~ **R**esearch on **T**abular **D**eep **L**earning)*
 
-```
+```shell
 pip install rtdl_num_embeddings
+
+# Scikit-learn is an optional dependency. It is needed only for
+# computing the bins for the piecewise-linear transformations
+# using decision trees: `compute_bins(..., tree_kwargs={...})`.
 pip install "scikit-learn>=1.0,<2"
 ```
 
 # Usage
 
-> [!IMPORTANT]
+> [!TIP]
 > It is recommended to first read the TL;DR of the paper:
 > [link](../README.md#tldr)
 
-Let's consider a toy tabular data problem where objects are represented by three
-continuous features
-(for simplicity, other feature types are omitted,
-but they are covered in the end-to-end example):
+## Basics
+
+Let's consider a toy task on tabular data where objects are represented by three continuous features
+(for simplicity, other feature types are omitted, but they are covered in the end-to-end example
+linked later in this document):
 
 <!-- test main -->
 ```python
@@ -74,6 +68,7 @@ but they are covered in the end-to-end example):
 import torch
 import torch.nn as nn
 from rtdl_num_embeddings import (
+    LinearEmbeddings,
     LinearReLUEmbeddings,
     PeriodicEmbeddings,
     PiecewiseLinearEncoding,
@@ -107,11 +102,11 @@ And this is how MLP **with embeddings for continuous features** can be created:
 <!-- test main -->
 ```python
 d_embedding = 24
-m_cont_embeddings = PeriodicEmbeddings(n_cont_features, lite=False)
+embeddings = LinearReLUEmbeddings(n_cont_features, d_embedding)
 model_with_embeddings = nn.Sequential(
     # Input shape: (batch_size, n_cont_features)
 
-    m_cont_embeddings,
+    embeddings,
     # After embeddings: (batch_size, n_cont_features, d_embedding)
 
     # NOTE: `nn.Flatten` is not needed for Transformer-like architectures.
@@ -126,36 +121,43 @@ y_pred = model_with_embeddings(x)
 ```
 
 In other words, the whole paper is about the fact that having such a thing as
-`m_cont_embeddings` can (significantly) improve the downstream performance.
+`embeddings` can (significantly) improve the task performance.
 
-**The paper showcases three types of such embeddings**:
-- [Simple](#simple-embeddings)
-- [Periodic](#simple-embeddings)
-- [Piecewise-linear](#piecewise-linear-encoding--embeddings)
+The following sections cover all available types of embeddings, including:
 
-## Simple embeddings<!-- omit in toc -->
+- Simple embeddings
+- Piecewise-linear embeddings
+- Periodic embeddings
 
-*(Described in Section 3.4 in the paper)*
+> [!TIP]
+> The choice between the embedding types is discussed later in this document.
 
-| Name | Definition for a single feature | How to create               |
-| :--- | :------------------------------ | :-------------------------- |
-| `LR` | `ReLU(Linear(x_i))`             | `LinearReLUEmbeddings(...)` |
+## Simple embeddings
 
-In the above table:
-- L ~ Linear, R ~ ReLU.
-- `x_i` is the i-th scalar continuous feature
+This section covers simple embeddings based on linear layers and ReLU activation.
+It is possible to compose arbitrarily deep embeddings of this kind,
+as shown in the advanced example below.
 
-**Hyperparameters**
+| Module                 | Definition for a single feature `x_i` |
+| :--------------------- | :------------------------------------ |
+| `LinearEmbeddings`     | `Linear(x_i)`                         |
+| `LinearReLUEmbeddings` | `ReLU(Linear(x_i))`                   |
+
+**Notes**
+
+The paper focuses on *non-linear* embeddings, so `LinearEmbeddings` is provided only for
+completeness.
+
+**Hyperparameters** of `LinearReLUEmbeddings`:
 
 - The default value of `d_embedding` is set with the MLP backbone in mind.
-  Typically, for Transformer-like backbones, the embedding size is larger.
+  For Transformer-like models, the embedding size is usually larger and depends on a model.
 - For MLP, on most tasks (at least on non-small tasks),
   tuning `d_embedding` will not have much effect.
 - See other notes on hyperparameters in ["Practical notes"](#practical-notes).
 
 <!-- test main _ -->
 ```python
-# MLP-LR
 d_embedding = 32
 model = nn.Sequential(
     LinearReLUEmbeddings(n_cont_features, d_embedding),
@@ -166,87 +168,193 @@ y_pred = model(x)
 ```
 
 <details>
-<summary>Advanced example</summary>
+<summary>How to compose deeper embeddings</summary>
 
-To further illustrate the overall idea, let's consider a more advanced example,
-where embeddings consist of three steps:
-1. First, each feature is embedded linearly.
-2. Then, ReLU is applied.
-   At this point, the embedding is equivalent to `LinearReLUEmbeddings`.
-3. Finally, feature embeddings are project to a lower dimension,
-   where *separate* (i.e. non-shared) linear projections are learned
-   for all feature.
+To further illustrate the overall idea,
+let's compose a three-layer embeddings with the goal of reducing the embedding dimension.
 
 <!-- test main _ -->
 ```python
 # NOTE: pip install delu
 import delu
-from rtdl_revisiting_models import LinearEmbeddings
 
-m_embeddings = nn.Sequential(
+d_embedding = 8
+embeddings = nn.Sequential(
+    # First, each feature is embedded linearly
     LinearEmbeddings(n_cont_features, 48),
+    # Second, the non-linearity is applied.
     nn.ReLU(),
-    delu.nn.NLinear(n_cont_features, 48, 8)
+    # Finally, the feature embeddings are projected to a lower dimension.
+    # NLinear contains `n_cont_features` linear layers, i.e. one per each feature embedding.
+    # (in other words, the linear layers are not shared between the features).
+    delu.nn.NLinear(n_cont_features, 48, d_embedding)
 )
 model = nn.Sequential(
-    m_embeddings,
+    embeddings,
     nn.Flatten(),
-    MLP(d_in=n_cont_features * 8, **mlp_config)
+    MLP(d_in=n_cont_features * d_embedding, **mlp_config)
 )
 y_pred = model(x)
 ```
 
 </details>
 
-## Periodic embeddings<!-- omit in toc -->
+## Piecewise-linear encoding & embeddings
 
-*(Described in Section 3.3 in the paper)*
+*(Described in Section 3.2 of the paper)*
 
-| Name        | Definition for a single feature                                            | How to create                                           |
-| :---------- | :------------------------------------------------------------------------- | :------------------------------------------------------ |
-| `PLR`       | `ReLU(Linear(Periodic(x_i)))`                                              | `PeriodicEmbeddings(..., lite=False)`                   |
-| `PLR(lite)` | `ReLU(Linear(Periodic(x_i)))` <br> *(`Linear` is shared between features)* | `PeriodicEmbeddings(..., lite=True)`                    |
-| `PL`        | `Linear(Periodic(x_i))`                                                    | `PeriodicEmbeddings(..., activation=False, lite=False)` |
+<img src="piecewise-linear-encoding.png" width=40%>
 
-In the above table:
-- P ~ Periodic, L ~ Linear, R ~ ReLU.
-- `x_i` is the i-th scalar continuous feature
-- `Periodic(x_i) = concat[cos(v_i), sin(v_i)]`, where, **following Section 3.3**:
-  - `v_i = [2 * pi * c_1 * x_i, ..., 2 * pi * c_k * x_i]`
-    where `k` is set with the `n_frequencies` hyperparameter.
-  - The `frequency_init_scale` hyperparameter is the initialization scale for the `c_i` coefficients.
-- `lite` is a new option introduced and used in a *different* paper ([this one](https://github.com/yandex-research/tabular-dl-tabr/)).
-  On some tasks, it allows making the `PLR` embedding significantly more lightweight
-  at the cost of non-critical performance loss.
+*The above figure illustrates the piecewise-linear encoding.
+The scalar feature $x$ is encoded to a vector using four bins:
+$[b_0, b_1], [b_1, b_2], [b_2, b_3], [b_3, b_4]$.*
+
+| Module                                        | Definition for a single feature `x_i` |
+| :-------------------------------------------- | :------------------------------------ |
+| `PiecewiseLinearEncoding`                     | `PLE(x_i)`                            |
+| `PiecewiseLinearEmbeddings(activation=False)` | `Linear(PLE(x_i))`                    |
+| `PiecewiseLinearEmbeddings(activation=True)`  | `ReLU(Linear(PLE(x_i)))`              |
+
+In the above table, `PLE` stands for "Piecewise-linear encoding".
+
+**Notes**
+
+There are two distinct modules: `PiecewiseLinearEncoding` and `PiecewiseLinearEmbeddings`.
+
+`PiecewiseLinearEmbeddings` is similar to all other modules in this package, and
+produces object representations of the shape `(n_features, d_embedding)`. The intuition behind
+`PiecewiseLinearEmbeddings` is that each bin receives its own trainable embedding, and the feature
+embedding is the aggregation of its bin embeddings with the aggregation weights provided by the
+piecewise-linear *encoding*.
+
+`PiecewiseLinearEncoding` is different from all other modules in this package.
+It represents a fixed (non-trainable) transformation, fully defined by the provided bin boundaries,
+as illustrated above. Its output is the concatenation of the piecewise-linear representations
+of all features, i.e. this representation has the shape `(d_encoding,)`, where `d_encoding` equals
+the total number of bins across all features. Because of that, `PiecewiseLinearEncoding` can be used
+only with MLP-like models, but not with Transformer-like models.
+
+In practice, if there is enough data to train additional weights,
+`PiecewiseLinearEmbeddings` may be a better starting point even for MLP-like models.
+In particular, `PiecewiseLinearEmbeddings` makes it possible to set a large number of bins,
+but a small embedding size.
 
 **Hyperparameters**
 
-- `n_frequencies` and `frequency_init_scale` are commented above.
-- <details><summary><b>How to tune the <code>frequency_init_scale</code> hyperparameter</b></summary>
+> [!IMPORTANT]
+> For tuning hyperparameters with the TPE sample from Optuna, as it was done in the paper,
+> take the tuning spaces from the more recent [TabM](https://arxiv.org/abs/2410.24210) paper.
 
-  **Prioritize testing smaller values, because they are safer:**
-  - Larger-than-the-optimal value can lead to terrible performance.
-  - Smaller-than-the-optimal value will still yield decent performance.
-
-  Some approximate numbers:
-  - for 30% of tasks, the optimal `frequency_init_scale` is less than 0.05.
-  - for 50% of tasks, the optimal `frequency_init_scale` is less than 0.2.
-  - for 80% of tasks, the optimal `frequency_init_scale` is less than 1.0.
-  - for 90% of tasks, the optimal `frequency_init_scale` is less than 5.0.
-
-  If you want to test larger values,
-  make sure that you have enough hyperparameter tuning budget
-  (e.g. at least 100 trials of the TPE Optuna sampler, as in the paper).
-
-  </details>
-
-- The default value of `d_embedding` is set with the MLP backbone in mind.
-  Typically, for Transformer-like backbones, the embedding size is larger.
+- The default number of bins in `compute_bins` is set with MLPs in mind.
+- For `PiecewiseLinearEmbeddings`, by default, use `version="B"` and `activation=False`.
+- The `version` argument of `PiecewiseLinearEmbeddings` defines implementation details,
+  such as parametrization and initialization. "A" is the original version used in the paper.
+  "B" is the version used in the different paper about the TabM model.
+- The possible starting points are `d_embedding=12` with `activation=False`
+  and `d_embedding=24` with `activation=True`.
+  For Transformer-like models, the embedding size is usually larger and depends on a model.
+- Some models outside of this project provide different recommendations for default hyperparameters.
 - See other notes on hyperparameters in ["Practical notes"](#practical-notes).
 
 <!-- test main _ -->
 ```python
-# Example: MLP-PLR
+X_train = torch.randn(10000, n_cont_features)
+Y_train = torch.randn(len(X_train))  # Regression.
+
+# Quantile-based bins.
+bins = compute_bins(X_train)
+
+# Target-aware tree-based bins.
+bins = compute_bins(
+    X_train,
+    # NOTE: requires scikit-learn>=1.0 to be installed.
+    tree_kwargs={'min_samples_leaf': 64, 'min_impurity_decrease': 1e-4},
+    y=Y_train,
+    regression=True,
+)
+
+d_embedding = 12
+model = nn.Sequential(
+    PiecewiseLinearEmbeddings(bins, d_embedding, activation=False, version="B"),
+    nn.Flatten(),
+    MLP(d_in=n_cont_features * d_embedding, **mlp_config)
+)
+y_pred = model(x)
+
+total_n_bins = sum(len(b) - 1 for b in bins)
+model = nn.Sequential(
+    PiecewiseLinearEncoding(bins),
+    MLP(d_in=total_n_bins, **mlp_config)
+)
+y_pred = model(x)
+```
+
+## Periodic embeddings
+
+*(Described in Section 3.3 of the paper)*
+
+| Module                           | Definition for a single feature `x_i`                            |
+| :------------------------------- | :--------------------------------------------------------------- |
+| `PeriodicEmbeddings(lite=False)` | `ReLU(Linear(CosSin(2 * pi * Linear(x, bias=False))))`           |
+| `PeriodicEmbeddings(lite=True)`  | Same as above, but the outer `Linear` is shared between features |
+
+In the above table:
+
+- `CosSin` is a pseudo-module
+  that applies the `cos` and `sin` functions in parallel and concatenates the result.
+  In particular, it means that the output size is twice the input size.
+- The weights of the innermost `Linear` layer can be interpreted as **frequencies**,
+  which is reflected in the argument names of `PeriodicEmbeddings`.
+
+**Notes**
+
+- `PeriodicEmbeddings` implements what is also known as "PLR" embeddings.
+
+**Hyperparameters**
+
+> [!IMPORTANT]
+> For tuning hyperparameters with the TPE sample from Optuna, as it was done in the paper,
+> take the tuning spaces from the more recent [TabM](https://arxiv.org/abs/2410.24210) paper.
+
+- The `lite` option is introduced in a different paper
+  ([this one](https://github.com/yandex-research/tabular-dl-tabr/)).
+  It makes the embedding significantly more lightweight, and, on some tasks, the performance loss
+  is not critical. `lite=True` is a reasonable starting point.
+- `n_frequencies` is `out_features` of the innermost `Linear` layer.
+- The default value of `d_embedding` is set with the MLP backbone in mind.
+  For Transformer-like models, the embedding size is usually larger and depends on a model.
+- **The `frequency_init_scale` hyperparameter is important**. While the default values is safe,
+  on some tasks, different values may be needed to reveal the full potential of the periodic embedding.
+  <details><summary>How to tune <code>frequency_init_scale</code></summary>
+
+  **Prioritize testing smaller values, because they are safer:**
+
+  - Smaller-than-the-optimal value will still yield decent performance.
+  - Larger-than-the-optimal value can lead to bad performance.
+  - Because of the above, the default value is already small
+    (usually, there is no need to try smaller-than-the-default values).
+
+  Some approximate numbers:
+
+  - For 25% of tasks, the optimal `frequency_init_scale` is less than 0.03.
+  - For 50% of tasks, the optimal `frequency_init_scale` is less than 0.05.
+  - For 75% of tasks, the optimal `frequency_init_scale` is less than 0.5.
+
+  Other comments:
+
+  - In practice, with enough budget for tuning (e.g. 50-100 trials of the TPE Optuna sampler),
+    a reasonable distribution for `frequency_init_scale` is `LogUniform[0.01, 1.0]`.
+    In research projects, it can be `LogUniform[0.01, 10.0]`.
+  - If the budget is low, than it is better to reduce the upper bound.
+    Another option is to exclude `frequency_init_scale` from tuning,
+    since the default value is safe for most tasks.
+
+  </details>
+
+- See other notes on hyperparameters in ["Practical notes"](#practical-notes).
+
+<!-- test main _ -->
+```python
 d_embedding = 24
 model = nn.Sequential(
     PeriodicEmbeddings(n_cont_features, d_embedding, lite=False),
@@ -256,185 +364,110 @@ model = nn.Sequential(
 y_pred = model(x)
 ```
 
-## Piecewise-linear encoding & embeddings<!-- omit in toc -->
+# Examples
 
-*(Described in Section 3.2 in the paper)*
-
-<img src="piecewise-linear-encoding.png" width=40%>
-
-| Name                               | Definition for a single feature | How to create                                       |
-| :--------------------------------- | :------------------------------ | :-------------------------------------------------- |
-| `Q`/`T` (only for MLP-like models) | `ple(x_i)`                      | `PiecewiseLinearEncoding(bins)`                     |
-| `QL`/`TL`                          | `Linear(ple(x_i))`              | `PiecewiseLinearEmbeddings(bins, activation=False)` |
-| `QLR` / `TLR`                      | `ReLU(Linear(ple(x_i)))`        | `PiecewiseLinearEmbeddings(bins, activation=True)`  |
-
-In the above table:
-- Q ~ quantiles-based bins, T ~ tree-based bins, L ~ Linear, R ~ ReLU.
-- `x_i` is the i-th scalar continuous feature.
-- `ple` stands for "Piecewise-linear encoding".
-
-**Notes**
-
-- In the table above, there are *two* distinct classes:
-  `PiecewiseLinearEncoding` and `PiecewiseLinearEmbeddings`.
-- The output of `PiecewiseLinearEncoding` has the shape `(*batch_dims, d_encoding)`,
-  where `d_encoding` equals the total number of bins of all features.
-  This variation of piecewise-linear representations
-  without end-to-end trainable parameters is suitable only for MLP-like models.
-- By contrast, `PiecewiseLinearEmbeddings` is similar to all other classes of
-  this package and its output has the shape `(*batch_dims, n_features, d_embedding)`.
-
-**Hyperparameters**
-
-- For `PiecewiseLinearEmbeddings`,
-  possible starting points are `d_embedding=8, activation=False`
-  or `d_embedding=24, activation=True`.
-- See other notes on hyperparameters in ["Practical notes"](#practical-notes).
-
-<!-- test main _ -->
-```python
-X_train = torch.randn(10000, n_cont_features)
-Y_train = torch.randn(len(X_train))  # Regression.
-
-# (Q) Quantile-based bins.
-bins = compute_bins(X_train)
-
-# (T) Target-aware tree-based bins.
-#     They are extracted from splitting nodes
-#     of feature-wise decision trees.
-bins = compute_bins(
-    X_train,
-    # NOTE: requires scikit-learn>=1.0 to be installed.
-    tree_kwargs={'min_samples_leaf': 64, 'min_impurity_decrease': 1e-4},
-    y=Y_train,
-    regression=True,
-)
-
-# MLP-Q / MLP-T
-model = nn.Sequential(
-    PiecewiseLinearEncoding(bins),
-    nn.Flatten(),
-    MLP(d_in=sum(len(b) - 1 for b in bins), **mlp_config)
-)
-y_pred = model(x)
-
-# MLP-QLR / MLP-TLR
-d_embedding = 24
-model = nn.Sequential(
-    PiecewiseLinearEmbeddings(bins, d_embedding, activation=True),
-    nn.Flatten(),
-    MLP(d_in=n_cont_features * d_embedding, **mlp_config)
-)
-y_pred = model(x)
-```
-
-# End-to-end examples
-
-See [this Jupyter notebook](./example.ipynb) (Colab link inside).
+The [example.ipynb](./example.ipynb) notebook **(Colab link inside)**
+provides an example of training a model with embeddings.
 
 # Practical notes
 
-**General comments**
+## General comments
 
 - **Embeddings for continuous features are applicable to most tabular DL models**
   and often lead to better performance.
-  On some problems, embeddings can lead to truly significant improvements.
-- As of 2022-2023, **MLP with embeddings is a reasonable modern baseline**
-  in terms of both task performance and efficiency.
-  Depending on the task and embeddings, it can perform on par or even better than
-  FT-Transformer, while being significantly more efficient.
 - Despite the formal overhead in terms of parameter count,
-  **embeddings are perfectly affordable in many cases**.
-  That said, on big enough datasets and/or with large enough number of features and/or
-  with strict enough latency requirements,
+  **in practice, embeddings are perfectly affordable,** even on large datasets.
+  That said, with large enough number of features and/or with strict enough latency requirements,
   the new overhead associated with embeddings may become an issue.
+- MLPs with embeddings can perform on par or even better than Transformer-like models
+  (e.g. FT-Transformer), while being significantly more efficient.
 
-**Practical overview of the embeddings**
-
-*(this section assumes MLP as the backbone)*
-
-`LinearReLUEmbeddings`:
-- A lightweight embedding falling into the "low risk & (usually) low reward" category.
-- A good choice for a quick start on a new problem, especially if 
-  this is your first time working with embeddings.
-
-`PeriodicEmbeddings`:
-- Demonstrated the best average performance in the paper.
-- Often, the "lite" version `PeriodicEmbeddings(..., lite=True)` is a good
-  starting point in terms of the balance between task performance and efficiency.
-- So, in practice, a possible strategy is to start with `lite=True`,
-  tune hyperparameters if needed, and then try `lite=False`.
-
-`PiecewiseLinearEncoding` & `PiecewiseLinearEmbeddings`:
-- Why trying this if the periodic embeddings are better on average?
-  There is no single reason, rather a range of small things that
-  can make piecewise-linear representations preferable in some cases:
-  - To start with, they just work well on some problems.
-  - They make a model less sensitive to feature preprocessing:
-    (1) standardization (`sklearn.preprocessing.StandardScaler`)
-        becomes unneeded.
-    (2) quantile transformation can still be useful,
-        but may become less impactful on some problems.
-  - They can occasionally make a model more robust to outliers in the training data.
-  - They are simpler to understand and reason about. In particular,
-    `PiecewiseLinearEmbeddings` can be seen as a collection of bin
-    embeddings that are aggregated based on input feature values.
-  - The quantile-based bins are somewhat easy to use due to just one hyperparameter
-    (good defaults for tree-based bins may exist as well,
-    but there were no attempts to find them; perhaps, the published tuned configurations
-    for different datasets contain the answer).
-- Regarding the drawbacks:
-  - In some setups, they can be less convenient to use
-    because of the additional bin computation step.
-
-**Hyperparameters**
+## Which embeddings to choose?
 
 > [!NOTE]
-> It is possible to explore tuned hyperparameters
-> for the models and datasets used in the paper as explained here:
-> [link](../README.md#how-to-explore-metrics-and-hyperparameters).
+> This section is written with MLP-like models in mind, though some advice is applicable
+> to Transformer models as well.
 
-- The default hyperparameters are set with the MLP-like backbones in mind and
-  with "low risk" (not the "high reward") as the priority.
+**General guidelines**
+
+- If you have not used embeddings before, try `LinearReLUEmbeddings` for a quick start to get
+  familiar with the interface.
+- To choose between `PiecewiseLinearEmbeddings` and `PeriodicEmbeddings`, a possible strategy is to
+  try both with default hyperparameters, and tune what works best on a given task.
+- If the provided advanced embeddings are not suitable for any reason,
+  consider composing deep simple embeddings as shown in [Simple embeddings](#simple-embeddings).
+- On smaller datasets, consider trying `PiecewiseLinearEncoding` with a small number of bins
+  (this idea is not tested, since small datasets are not covered in the paper).
+- Learn the proc and cons below to make more informed decision.
+
+**Pros & Cons**
+
+`LinearReLUEmbeddings`
+
+- Pros: lightweight; ease to use.
+- Cons: usually, the performance is lower compared to more advanced embeddings, though still
+  better than without embeddings.
+
+`PiecewiseLinearEmbeddings`
+
+- Pros: good average performance; high peak performance on some datasets;
+  less sensitive to data preprocessing; easier to understand and reason about compared to the
+  periodic embeddings.
+- Cons: requires the additional step of the bin computation before the training (this can be
+  important when full end-to-end trainability is required); on some datasets, the optimal number
+  of bins may be low (in such cases, the performance benefits may also be limited).
+
+`PeriodicEmbeddings`
+
+- Pros: good average performance; has a reliable default configuration; contrary to the
+  piecewise-linear embeddings, does not introduce any additional computation steps.
+- Cons: the behavior and hyperparameters are harder to interpret compared to the piecewise-linear
+  embeddings; too high values of the `frequency_init_scale` hyperparameter can lead to bad
+  performance.
+
+`PiecewiseLinearEncoding`. This module is a bit less explored.
+Perhaps, it may worth attention on smaller datasets, with somewhat lower number of bins.
+
+## Hyperparameters
+
+- The default hyperparameters are set with MLPs in mind.
   For Transformer-like models, one may need to (significantly) increase `d_embedding`.
-- Tuning hyperparameters of the periodic embeddings can require special considerations
-  as described in the [corresponding usage section](#periodic-embeddings).
-- For MLP-like models with embeddings ending with a linear layer `L`
-  (e.g. `PL`, `QL`, `TL`),
-  a possible starting point is to set `d_embedding` to a smaller-than-default value (e.g. `8` or `16`).
 - In the paper, for hyperparameter tuning, the
   [TPE sampler from Optuna](https://optuna.readthedocs.io/en/stable/reference/samplers/generated/optuna.samplers.TPESampler.html)
   was used with `study.optimize(..., n_trials=100)` (sometimes, `n_trials=50`).
-- The hyperparamer tuning spaces can be found in the appendix of the paper
-  and in `exp/**/*tuning.toml` files
-  (for the `frequency_init_scale` hyperparameter of `PeriodicEmbeddings`,
-  the upper bound can often be safely reduced to `10.0` instead of `100.0`).
+- For embeddings ending with a non-linear activation (i.e. `activation=True` in some of the modules),
+  the minimum reasonable embedding size is larger than for embeddings ending with linear layers.
+  The default values and recommendations in this package follow this guideline.
 
-**Tips**
+## Tips
 
-- To improve efficiency, it is possible to embed only a subset of features.
-- The biggest wins come from embedding *important, but "problematic"* features.
-  Intuitively, "problematic features" are the ones that are hard to process
-  for a given model and prevent it from achieving better results.
-  (for example, features with irregular joint distributions
-  with other features and labels may be such "problematic features").
-- It is possible to combine embeddings
-  and apply different embeddings to different features.
-- The proposed embeddings are relevant only for continuous features,
-  so they should not be used for embedding binary or categorical features.
-- If an embedding ends with a linear layer (`PL`, `QL`, `TL`, etc.) and its output
-  is passed to MLP, then that linear layer can be fused with the first linear layer of
-  MLP after the training (sometimes, it can lead to better efficiency).
-- (a bonus tip for those who read such long documents until the end)
-  On some problems, MLP-L
-  (that is, MLP with `rtdl_revisiting_models.LinearEmbeddings` -- the simplest possible
-  linear embeddings from a different package) performs better than MLP.
-  Combined with one of the bullets above, it means that, on some problems,
-  one can train MLP-L and transform it to a simple embedding-free MLP after the training.
+- The proposed embeddings are applicable only to continuous ("numerical") features,
+  so they should not be applied to binary or categorical features.
+- It is possible to embed only a subset of features (e.g. to improve efficiency).
+- It is possible to combine embeddings and apply different embeddings to different features
+  (e.g. when some features need different embedding hyperparameters than others).
+- If an embedding ends with a linear layer, and its output is passed to MLP, then that linear layer
+  can be fused with the first linear layer of MLP after the training.
+- (An optional advanced tip for those who read such long documents until the end)
+  On some datasets, MLP with *linear* embeddings (i.e. `LinearEmbeddings`) performs better than MLP,
+  which is intriguing (the paper does not provide explanations for why that happens, and this
+  phenomenon does not happen very often). Combined with the previous point, it means that, on some
+  datasets, one can train MLP with linear embeddings and transform it to a plain embedding-free MLP
+  after the training, thus obtaining better MLP without any overhead on inference.
 
 # API
 
-To explore the available API and docstrings, open the source file and:
+There are two ways to explore the available API and docstrings.
+
+(1) Generate the documentation (requires [Pixi](https://pixi.sh) to be installed):
+
+```shell
+git clone https://github.com/yandex-research/rtdl-num-embeddings
+cd rtdl-num-embeddings/package
+pixi run docs
+```
+
+(2) Open the source file and:
 - On GitHub, use the Symbols panel.
 - In VSCode, use the [Outline view](https://code.visualstudio.com/docs/getstarted/userinterface#_outline-view).
 - Check the `__all__` variable.
@@ -443,20 +476,22 @@ To explore the available API and docstrings, open the source file and:
 
 <details>
 
-Set up the environment (replace `micromamba` with `conda` or `mamba` if needed):
+Set up the environment:
+
 ```
-micromamba create -f environment-package.yaml
+pixi install
 ```
 
-Check out the available commands in the [Makefile](./Makefile).
-In particular, use this command before committing:
+Use this command before committing:
+
 ```
 make pre-commit
 ```
 
 Publish the package to PyPI (requires PyPI account & configuration):
-```
-flit publish
-```
-</details>
 
+```
+pixi run -e dev flit publish
+```
+
+</details>

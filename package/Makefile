@@ -13,17 +13,17 @@ clean:
 	rm -rf .ruff_cache
 	rm -rf dist
 
+docs:
+	pixi run --environment dev docs
+
 doctest:
-	pixi run -e test xdoctest $(PACKAGE_ROOT)
-	pixi run -e test python test_code_blocks.py README.md
+	pixi run --environment test doctest
 
 lint:
-	pixi run -e test typos
-	pixi run -e test ruff check .
-	pixi run -e test ruff format --check
+	pixi run --environment test lint
 
 # The order is important.
 pre-commit: clean lint doctest typecheck
 
 typecheck:
-	pixi run -e test mypy $(PACKAGE_ROOT)
+	pixi run --environment test typecheck

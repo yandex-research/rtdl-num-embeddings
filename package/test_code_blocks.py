@@ -9,12 +9,12 @@ import argparse
 import itertools
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 import tomli
 
 
-def main(argv: List[str]) -> None:
+def main(argv: list[str]) -> None:
     assert Path(__file__).absolute() in Path.cwd().iterdir()
 
     parser = argparse.ArgumentParser(
@@ -23,7 +23,7 @@ def main(argv: List[str]) -> None:
     parser.add_argument('path', metavar='PATH', help='The markdown file.')
     args = parser.parse_args(argv[1:])
 
-    shared_globals: Dict[str, Dict[str, Any]] = {}
+    shared_globals: dict[str, dict[str, Any]] = {}
     try:
         exec(
             tomli.loads(Path('pyproject.toml').read_text())
@@ -37,12 +37,12 @@ def main(argv: List[str]) -> None:
         raise RuntimeError(
             'Failed to execute the test setup from pyproject.toml'
         ) from err
-    named_globals: Dict[str, Dict[str, Any]] = {}
+    named_globals: dict[str, dict[str, Any]] = {}
 
     lines = enumerate(Path(args.path).read_text().splitlines())
     n_tests = 0
     for index, line in lines:
-        # >>> If the line is not a start of test, go the next one.
+        # >>> If the line is not a start of test, go to the next one.
         if not line.startswith('<!-- test '):
             continue
 

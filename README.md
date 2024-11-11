@@ -2,7 +2,7 @@
 
 :scroll: [arXiv](https://arxiv.org/abs/2203.05556)
 &nbsp; :package: **[Python package](./package/README.md)**
-&nbsp; :books: [RTDL (other projects on tabular DL)](https://github.com/yandex-research/rtdl)
+&nbsp; :books: [Other tabular DL projects](https://github.com/yandex-research/rtdl)
 
 This is the official implementation of the paper
 "On Embeddings for Numerical Features in Tabular Deep Learning".
