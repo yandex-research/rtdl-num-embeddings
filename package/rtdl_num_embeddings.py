@@ -1,6 +1,6 @@
 """On Embeddings for Numerical Features in Tabular Deep Learning."""
 
-__version__ = '0.0.11.dev0'
+__version__ = '0.0.11'
 
 __all__ = [
     'LinearEmbeddings',
