@@ -1,5 +1,8 @@
 # On Embeddings for Numerical Features in Tabular Deep Learning (NeurIPS 2022)
 
+> [!IMPORTANT]
+> Check out the new tabular DL model: [TabM](https://arxiv.org/abs/2410.24210)
+
 :scroll: [arXiv](https://arxiv.org/abs/2203.05556)
 &nbsp; :package: **[Python package](./package/README.md)**
 &nbsp; :books: [Other tabular DL projects](https://github.com/yandex-research/rtdl)
