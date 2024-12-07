@@ -217,9 +217,9 @@ python bin/evaluate.py exp/mlp/california/1_tuning 15
 
 # Evaluate ensembles (by default, three ensembles of size five each)
 python bin/ensemble.py exp/mlp/california/1_evaluation
-
-# Then use bin/results.ipynb to view the obtained results
 ```
+
+The section ["Metrics"](#metrics) shows how to summarize the obtained results.
 
 ## Understanding the repository
 
@@ -232,7 +232,6 @@ The code is organized as follows:
     - `tune.py` for tuning
     - `evaluate.py` for evaluation
     - `ensemble.py` for ensembling
-    - `results.ipynb` for summarizing results
     - `datasets.py` was used to build the [dataset splits](#data)
     - `synthetic.py` for generating the synthetic GBDT-friendly datasets
     - `train1_synthetic.py` for the experiments with synthetic data
