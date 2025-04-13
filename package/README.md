@@ -118,6 +118,10 @@ model_with_embeddings = nn.Sequential(
 )
 # The usage is the same as for the model without embeddings:
 y_pred = model_with_embeddings(x)
+
+# All embedding modules in the package provide the `get_output_shape` method returning
+# the shape of the module output, without the batch dimensions:
+assert embeddings.get_output_shape() == torch.Size((n_cont_features, d_embedding))
 ```
 
 In other words, the whole paper is about the fact that having such a thing as
