@@ -1,7 +1,5 @@
 .PHONY: default clean doctest lint pre-commit typecheck
 
-PACKAGE_ROOT = rtdl_num_embeddings.py
-
 default:
 	echo "Hello, World!"
 
@@ -14,16 +12,19 @@ clean:
 	rm -rf dist
 
 docs:
-	pixi run --environment dev docs
+	uv run pdoc -d google --math --no-include-undocumented rtdl_num_embeddings.py
 
 doctest:
-	pixi run --environment test doctest
+	uv run xdoctest rtdl_num_embeddings.py
+	uv run python test_code_blocks.py README.md
 
 lint:
-	pixi run --environment test lint
+	uv run typos rtdl_num_embeddings.py
+	uv run ruff check rtdl_num_embeddings.py
+	uv run ruff format --check rtdl_num_embeddings.py
 
 # The order is important.
 pre-commit: clean lint doctest typecheck
 
 typecheck:
-	pixi run --environment test typecheck
+	uv run mypy rtdl_num_embeddings.py
