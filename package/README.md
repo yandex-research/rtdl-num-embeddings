@@ -103,25 +103,23 @@ And this is how MLP **with embeddings for continuous features** can be created:
 ```python
 d_embedding = 24
 embeddings = LinearReLUEmbeddings(n_cont_features, d_embedding)
+
+# Get the output shape without batch dimensions:
+assert embeddings.get_output_shape() == (n_cont_features, d_embedding)
+# Get the total output size after flattening:
+assert embeddings.get_output_shape().numel() == n_cont_features * d_embedding
+
 model_with_embeddings = nn.Sequential(
-    # Input shape: (batch_size, n_cont_features)
-
-    embeddings,
-    # After embeddings: (batch_size, n_cont_features, d_embedding)
-
-    # NOTE: `nn.Flatten` is not needed for Transformer-like architectures.
-    nn.Flatten(),
-    # After flattening: (batch_size, n_cont_features * d_embedding)
-
-    MLP(d_in=n_cont_features * d_embedding, **mlp_config)
-    # The final shape: (batch_size, d_out)
+                   # Input shape: (batch_size, n_cont_features)
+    embeddings,    #           -> (batch_size, n_cont_features, d_embedding)
+    nn.Flatten(),  #           -> (batch_size, n_cont_features * d_embedding)
+    MLP(           #           -> (batch_size, d_out)
+        d_in=embeddings.get_output_shape().numel(),
+        **mlp_config,
+    )
 )
 # The usage is the same as for the model without embeddings:
 y_pred = model_with_embeddings(x)
-
-# All embedding modules in the package provide the `get_output_shape` method returning
-# the shape of the module output, without the batch dimensions:
-assert embeddings.get_output_shape() == torch.Size((n_cont_features, d_embedding))
 ```
 
 In other words, the whole paper is about the fact that having such a thing as
